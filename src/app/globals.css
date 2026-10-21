@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@import "./uiverse.css";
+
+@theme {
+  --color-dott-bg: #0A0A0A;
+  --color-dott-white: #F5F5F3;
+  --color-dott-grid: #111111;
+  --color-dott-border: #1A1A1A;
+  --color-dott-dim: #3D3D3D;
+  
+  --font-display: var(--font-syne), sans-serif;
+  --font-body: var(--font-space-mono), monospace;
+}
+
+.font-pixel {
+  font-family: var(--font-silkscreen), monospace;
+}
+
+:root {
+  --background: #0A0A0A;
+  --foreground: #F5F5F3;
+}
+
+html {
+  scrollbar-width: auto;
+  scrollbar-color: var(--foreground) var(--background);
+}
+
+img, image {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+* {
+  cursor: none !important;
+}
+
+.bg-dott-grid {
+  background-size: 22px 22px;
+  background-image: 
+    linear-gradient(to right, var(--color-dott-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-dott-grid) 1px, transparent 1px);
+  background-position: center top;
+}
+
+.scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.02) 50%,
+    rgba(0, 0, 0, 0.02)
+  );
+  background-size: 100% 6px;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.film-grain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 51;
+  opacity: 0.15;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+}
+
+.vignette {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 52;
+  background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.4) 150%);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-dott-bg);
+  border-left: 1px solid var(--color-dott-border);
+}
+::-webkit-scrollbar-track:horizontal {
+  border-top: 1px solid var(--color-dott-border);
+  border-left: none;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-dott-white);
+  border-radius: 0;
+  border: 1px solid var(--color-dott-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+}
+
+.text-glitch {
+  position: relative;
+}
+.text-glitch::before,
+.text-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.text-glitch::before {
+  left: 2px;
+  text-shadow: -1px 0 red;
+  clip: rect(24px, 550px, 90px, 0);
+  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+.text-glitch::after {
+  left: -2px;
+  text-shadow: -1px 0 blue;
+  clip: rect(85px, 550px, 140px, 0);
+  animation: glitch-anim 2.5s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim {
+  0% { clip: rect(15px, 9999px, 83px, 0); }
+  20% { clip: rect(65px, 9999px, 14px, 0); }
+  40% { clip: rect(43px, 9999px, 7px, 0); }
+  60% { clip: rect(72px, 9999px, 98px, 0); }
+  80% { clip: rect(89px, 9999px, 11px, 0); }
+  100% { clip: rect(32px, 9999px, 45px, 0); }
+}
+
+@keyframes glitch-anim-2 {
+  0% { clip: rect(65px, 9999px, 100px, 0); }
+  20% { clip: rect(10px, 9999px, 60px, 0); }
+  40% { clip: rect(20px, 9999px, 40px, 0); }
+  60% { clip: rect(50px, 9999px, 80px, 0); }
+  80% { clip: rect(30px, 9999px, 70px, 0); }
+  100% { clip: rect(80px, 9999px, 10px, 0); }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-10px); }
+  100% { transform: translateY(400px); }
+}
+
+@keyframes floatUp {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate3d(0, -110vh, 0); opacity: 0; }
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  @page {
+    margin: 1cm;
+  }
+}
