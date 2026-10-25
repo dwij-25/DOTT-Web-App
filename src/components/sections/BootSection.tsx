@@ -179,14 +179,14 @@ export default function BootSection({ stickers }: { stickers: Sticker[] }) {
           </div>
           
           <div className="flex flex-col items-start lg:items-end gap-4">
-            <div className="font-display font-bold text-4xl">₹30 <span className="text-sm font-body text-white/50">/ sticker</span></div>
+            <div className="font-display font-bold text-4xl">₹20 <span className="text-sm font-body text-white/50">/ sticker</span></div>
 
             <div className="border border-white/30 px-4 py-2 text-xs tracking-widest">
               DOTT BOOT COLLECTION
             </div>
             
-            {/* Conditional Display: Countdown OR Scarcity Bar */}
-            <div className="w-full lg:w-64 mt-4 h-12">
+            {/* Conditional Display: Countdown when locked */}
+            <div className="w-full lg:w-64 mt-2">
               {!isLive ? (
                 <div className="flex flex-col">
                    <div className="flex flex-col sm:flex-row justify-between sm:items-center text-[10px] tracking-widest mb-2 text-[#FF4E50] gap-1">
@@ -198,20 +198,10 @@ export default function BootSection({ stickers }: { stickers: Sticker[] }) {
                    </div>
                 </div>
               ) : (
-                <>
-                  <div className="flex justify-between text-[10px] tracking-widest mb-2 text-[#b4ff39]">
-                    <span>CLAIMED</span>
-                    <span>38%</span>
-                  </div>
-                  <div className="h-1 bg-white/20 w-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: "38%" }}
-                      transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-                      className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]"
-                    />
-                  </div>
-                </>
+                <div className="flex items-center gap-2 text-xs font-mono text-[#b4ff39]">
+                  <span className="w-2 h-2 rounded-full bg-[#b4ff39] animate-pulse" />
+                  <span className="tracking-widest uppercase text-[10px]">IN STOCK · IMMEDIATE DISPATCH</span>
+                </div>
               )}
             </div>
           </div>
@@ -297,7 +287,7 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
       <div className="relative aspect-[3/4] border border-white/15 bg-black/40 flex items-center justify-center">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:10px_10px]" />
         <div className="text-center z-10">
-          <div className="text-white/20 font-display text-4xl mb-2">{index.toString().padStart(3, "0")}</div>
+          <div className="text-white/20 font-display text-3xl mb-2">✦</div>
           <div className="text-xs tracking-widest text-white/40 border border-white/20 px-3 py-1">UPLOADING SOON</div>
         </div>
       </div>
@@ -417,10 +407,12 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
       {/* Bottom Data Panel */}
       <div className="h-24 border-t border-white/35 bg-black p-3 z-20 flex flex-col justify-between">
         <div className="flex justify-between items-start">
-          <div>
-            <div className="text-[10px] text-white/50 tracking-widest mb-1">DOTT BOOT {index.toString().padStart(3, "0")}</div>
+          <div className="flex-1 pr-2 overflow-hidden">
+            <h4 className="text-white font-bold text-xs md:text-sm tracking-wide uppercase truncate max-w-[220px] font-display" title={sticker.name}>
+              {sticker.name}
+            </h4>
           </div>
-          <div className="font-body font-bold">₹{sticker.price / 100}</div>
+          <div className="font-body font-bold text-sm shrink-0">₹{sticker.price / 100}</div>
         </div>
         
         <div className="flex justify-between items-end">
@@ -487,9 +479,9 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
                         {sticker.name}
                       </h3>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-neutral-100 border border-black/10 flex items-center justify-center shadow-inner shrink-0">
-                      <span className="text-[10px] font-bold text-black font-mono">
-                        #{sticker.slot_number?.toString().padStart(3, '0')}
+                    <div className="px-2.5 py-1 rounded bg-black text-white flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold font-mono tracking-widest">
+                        BOOT
                       </span>
                     </div>
                   </div>

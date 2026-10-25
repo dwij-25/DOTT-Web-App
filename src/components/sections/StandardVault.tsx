@@ -218,14 +218,26 @@ const DotChevron = ({ className }: { className?: string }) => (
   </svg>
 );
 
+function cleanDisplayName(name?: string) {
+  if (!name) return "VINYL DROP";
+  const trimmed = name.trim();
+  if (/^STANDARD\s+\d+$/i.test(trimmed)) {
+    return "AESTHETIC VINYL";
+  }
+  if (/^BOOT\s+(STICKER\s+)?\d+$/i.test(trimmed)) {
+    return "BOOTLEG CULTURE";
+  }
+  return trimmed.replace(/\s*#\d+\s*$/, "").trim();
+}
+
 function Y2KSliderButton({ 
   slot, 
-  themeColor, 
+  themeColor = "#E83C3C", 
   onAdd, 
   isOutOfStock 
 }: { 
   slot: any; 
-  themeColor: string; 
+  themeColor?: string; 
   onAdd: () => void; 
   isOutOfStock: boolean;
 }) {
@@ -240,12 +252,12 @@ function Y2KSliderButton({
 
   useEffect(() => {
     if (containerRef.current) {
-      setDragWidth(containerRef.current.offsetWidth - 40);
+      setDragWidth(containerRef.current.offsetWidth - 42);
     }
   }, [containerRef.current?.offsetWidth]);
 
   // Map drag position to width of background block
-  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [40, (dragWidth || 1) + 40]);
+  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [42, (dragWidth || 1) + 42]);
 
   const handleDragEnd = () => {
     const currentX = dragX.get();
@@ -258,23 +270,21 @@ function Y2KSliderButton({
 
   const triggerAdd = () => {
     setIsSliding(true);
-    setIsAdded(false); // Show arrows animating first
+    setIsAdded(false);
     onAdd();
     
     // Animate background to full width
     animate(dragX, dragWidth, { type: "tween", duration: 0.25 });
 
-    // Show the arrow animation for 1.2s
     setTimeout(() => {
-      setIsAdded(true); // Switch to "ADDED TO PACK" text
+      setIsAdded(true);
       
-      // Keep "ADDED TO PACK" visible for 1.8s, then reset
       setTimeout(() => {
         setIsAdded(false);
         setIsSliding(false);
         animate(dragX, 0, { type: "spring", stiffness: 300, damping: 30 });
       }, 1800);
-    }, 1200);
+    }, 1000);
   };
 
   // Desktop click handler
@@ -288,54 +298,54 @@ function Y2KSliderButton({
   };
 
   const glowColors = {
-    "#E83C3C": "rgba(232, 60, 60, 0.85)",
-    "#A855F7": "rgba(168, 85, 247, 0.85)",
-    "#b4ff39": "rgba(180, 255, 57, 0.85)",
+    "#E83C3C": "rgba(232, 60, 60, 0.9)",
+    "#A855F7": "rgba(168, 85, 247, 0.9)",
+    "#b4ff39": "rgba(180, 255, 57, 0.9)",
   };
   const activeGlow = glowColors[themeColor as keyof typeof glowColors] || "rgba(255, 255, 255, 0.8)";
-  const textGlowStyle = isHovered 
-    ? { textShadow: `0 0 8px ${activeGlow}, 0 0 15px ${activeGlow.replace("0.85", "0.4")}` } 
-    : {};
 
   return (
     <div 
       ref={containerRef} 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full h-[52px] bg-[#0d0d0d] overflow-hidden select-none border-t border-black/10"
+      className="relative w-full h-[52px] bg-[#080808] overflow-hidden select-none border-t border-black/20 group transition-all"
     >
-      {/* Background slide bar */}
+      {/* Decorative cyber corner accents */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20 z-12 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/20 z-12 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20 z-12 pointer-events-none" />
+
+      {/* Background slide fill bar */}
       <motion.div 
-        className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+        className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none shadow-[0_0_15px_rgba(0,0,0,0.5)]"
         style={{ 
           width: isSliding ? "100%" : bgWidth, 
           backgroundColor: themeColor,
-          transition: isSliding ? "width 0.2s ease-out" : "none"
+          transition: isSliding ? "width 0.2s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
         }}
       >
-        {/* Animated chevrons inside the filled bar */}
         <div 
-          className="flex gap-2 items-center justify-center w-full px-6 text-black"
+          className="flex gap-2 items-center justify-center w-full px-4 text-black font-extrabold"
           style={{ opacity: isSliding || isAdded ? 1 : 0, transition: "opacity 0.2s" }}
         >
           {isAdded ? (
-            <span className="font-mono text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-black whitespace-nowrap">
-              ADDED TO PACK
+            <span className="font-mono text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-black flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-sm">✓</span> ADDED TO PACK
             </span>
           ) : (
-            <div className="flex gap-2 text-black">
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:0ms]" />
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:250ms]" />
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:500ms]" />
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:750ms]" />
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:1000ms]" />
-              <DotChevron className="animate-[pulseChevron_1.8s_infinite] [animation-delay:1250ms]" />
+            <div className="flex gap-2 text-black items-center">
+              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:0ms]" />
+              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:200ms]" />
+              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:400ms]" />
+              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:600ms]" />
+              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:800ms]" />
             </div>
           )}
         </div>
       </motion.div>
 
-      {/* Drag handle (Thumb) - Mobile only */}
+      {/* Decorative Tactile Slider Thumb - Mobile */}
       {!isOutOfStock && !isAdded && (
         <motion.div
           drag="x"
@@ -344,42 +354,57 @@ function Y2KSliderButton({
           dragMomentum={false}
           onDragEnd={handleDragEnd}
           style={{ x: dragX }}
-          className="absolute left-0 top-0 bottom-0 w-10 z-20 flex items-center justify-center cursor-grab active:cursor-grabbing md:hidden"
+          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing md:hidden"
         >
-          <div className="w-10 h-full flex items-center justify-center" style={{ backgroundColor: themeColor }}>
-            <DotChevron className="text-black" />
+          <div 
+            className="w-full h-full flex flex-col items-center justify-center gap-1 shadow-[2px_0_10px_rgba(0,0,0,0.6)] border-r border-black/20" 
+            style={{ backgroundColor: themeColor }}
+          >
+            <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
+            <DotChevron className="text-black scale-110" />
+            <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
           </div>
         </motion.div>
       )}
 
-      {/* Desktop Visual Thumb representation (Non-draggable) */}
+      {/* Decorative Tactile Thumb - Desktop */}
       {!isOutOfStock && !isAdded && (
         <div 
-          className="absolute left-0 top-0 bottom-0 w-10 z-20 hidden md:flex items-center justify-center"
+          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 hidden md:flex flex-col items-center justify-center gap-1 shadow-[2px_0_10px_rgba(0,0,0,0.6)] border-r border-black/20 group-hover:brightness-110 transition-all"
           style={{ backgroundColor: themeColor }}
         >
-          <DotChevron className="text-black" />
+          <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
+          <DotChevron className="text-black scale-110 group-hover:translate-x-0.5 transition-transform" />
+          <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
         </div>
       )}
 
-      {/* Desktop click area & text */}
+      {/* Click / Swipe Label */}
       <button 
         onClick={handleDesktopClick}
         className="absolute inset-0 w-full h-full bg-transparent flex items-center z-15 pointer-events-auto cursor-pointer"
         disabled={isOutOfStock || isAdded}
       >
-        <div className="w-10 shrink-0 h-full" />
-        <div className="flex-1 flex items-center justify-center px-1">
+        <div className="w-[42px] shrink-0 h-full" />
+        <div className="flex-1 flex items-center justify-center px-2">
           <span 
-            className="font-mono text-[8.5px] min-[360px]:text-[9.5px] md:text-[10px] font-bold tracking-[0.16em] md:tracking-[0.2em] uppercase text-white transition-all duration-300 whitespace-nowrap"
+            className="font-mono text-[9px] md:text-[10.5px] font-black tracking-[0.18em] uppercase text-white transition-all duration-300 flex items-center gap-2 whitespace-nowrap"
             style={{ 
               opacity: isSliding || isAdded ? 0 : 1,
-              transition: "opacity 0.2s, text-shadow 0.3s",
-              ...textGlowStyle
+              textShadow: isHovered ? `0 0 10px ${activeGlow}` : "none",
+              color: isHovered ? "#FFFFFF" : "rgba(255, 255, 255, 0.9)"
             }}
           >
-            <span className="md:hidden">SWIPE TO ADD</span>
-            <span className="hidden md:inline">CLICK TO ADD</span>
+            {/* Mobile label */}
+            <span className="md:hidden flex items-center gap-1.5 text-white/95">
+              <span>SWIPE TO ADD</span>
+              <span className="text-[11px] animate-pulse">»»</span>
+            </span>
+            {/* Desktop label */}
+            <span className="hidden md:flex items-center gap-2 group-hover:text-white">
+              <span className="tracking-[0.22em]">CLICK TO ADD</span>
+              <span className="text-xs transition-transform group-hover:translate-x-1" style={{ color: themeColor }}>+</span>
+            </span>
           </span>
         </div>
       </button>
@@ -399,7 +424,7 @@ function VaultCard({ slot }: { slot: any }) {
   if (slot.is_empty) {
     return (
       <div className="aspect-[3/4] rounded-lg border border-[#1A1A1A] bg-[#0D0D0D] flex flex-col items-center justify-center p-4 text-center">
-        <div className="text-white/10 font-display text-3xl md:text-5xl mb-2">{slot.slot_number.toString().padStart(3, "0")}</div>
+        <div className="text-white/10 font-display text-2xl md:text-3xl mb-2">✦</div>
         <div className="text-[10px] text-white/30 tracking-widest animate-pulse font-pixel">COMING SOON</div>
       </div>
     );
@@ -532,19 +557,26 @@ function VaultCard({ slot }: { slot: any }) {
           </div>
 
           {/* Top metadata tags & Price */}
-          <div className="flex items-center justify-between px-3 pt-3 relative z-10">
-            <div className="flex items-center gap-2">
-              <span className="bg-black text-white text-[6px] md:text-[8px] font-pixel px-1.5 py-0.5">{slot.slot_number.toString().padStart(3, "0")}</span>
-              <span className="text-black text-[6px] md:text-[8px] font-pixel uppercase tracking-widest opacity-70">
-                {slot.tags?.[0] || 'DOTT 2026'}
+          <div className="px-3 pt-2 pb-0.5 flex flex-col justify-between relative z-10">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span className="text-black/60 text-[7px] md:text-[8px] font-pixel uppercase tracking-widest truncate max-w-[130px]">
+                {slot.tags?.[0] || 'VINYL'}
               </span>
+              
+              {/* Price display with discounted original price */}
+              <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
+                <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+                <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
+              </div>
             </div>
-            
-            {/* Price display with discounted original price */}
-            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm">
-              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
-              <span className="text-black font-extrabold tracking-tight">₹19</span>
-            </div>
+
+            {/* Sticker Name: Enlarged writeup, bold & visible */}
+            <h4 
+              className="text-black font-extrabold text-[11px] md:text-[13px] tracking-tight font-display truncate uppercase leading-tight" 
+              title={cleanDisplayName(slot.name)}
+            >
+              {cleanDisplayName(slot.name)}
+            </h4>
           </div>
           
           {/* Full-width Y2K Dot Chevron Slider Button (extended to bottom) */}
@@ -691,19 +723,26 @@ function StampCard({ slot }: { slot: any }) {
           </div>
 
           {/* Top metadata tags & Price */}
-          <div className="flex items-center justify-between px-3 pt-3 relative z-10">
-            <div className="flex items-center gap-2">
-              <span className="bg-black text-white text-[6px] md:text-[8px] font-pixel px-1.5 py-0.5">{slot.slot_number.toString().padStart(3, "0")}</span>
-              <span className="text-black text-[6px] md:text-[8px] font-pixel uppercase tracking-widest opacity-70">
+          <div className="px-3 pt-2 pb-0.5 flex flex-col justify-between relative z-10">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span className="text-black/60 text-[7px] md:text-[8px] font-pixel uppercase tracking-widest truncate max-w-[130px]">
                 {slot.tags?.[0] || 'STAMP'}
               </span>
+              
+              {/* Price display with discounted original price */}
+              <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
+                <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+                <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
+              </div>
             </div>
-            
-            {/* Price display with discounted original price */}
-            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm">
-              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
-              <span className="text-black font-extrabold tracking-tight">₹19</span>
-            </div>
+
+            {/* Sticker Name: Enlarged writeup, bold & visible */}
+            <h4 
+              className="text-black font-extrabold text-[11px] md:text-[13px] tracking-tight font-display truncate uppercase leading-tight" 
+              title={cleanDisplayName(slot.name)}
+            >
+              {cleanDisplayName(slot.name)}
+            </h4>
           </div>
           
           {/* Full-width Y2K Dot Chevron Slider Button - PURPLE ACCENTED (extended to bottom) */}
