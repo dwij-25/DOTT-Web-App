@@ -15,8 +15,9 @@ export default async function AdminDashboard() {
     prisma.siteSetting.findMany()
   ]);
 
-  // Transform settings into a key-value map for the frontend
+  // Transform settings into a key-value map for the frontend (excluding sensitive API keys)
   const settingsMap = settings.reduce((acc: any, setting) => {
+    if (setting.key === "GEMINI_API_KEY") return acc;
     acc[setting.key] = setting.value;
     return acc;
   }, {});

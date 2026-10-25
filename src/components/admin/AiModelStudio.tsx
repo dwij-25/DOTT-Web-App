@@ -45,21 +45,16 @@ const getTagBadgeStyle = (tag: string) => {
 
 export default function AiModelStudio({
   stickers: initialStickers,
-  settings = {},
   showToast,
 }: {
   stickers: StickerItem[];
-  settings: Record<string, string>;
+  settings?: Record<string, string>;
   showToast: (msg: string) => void;
 }) {
   const router = useRouter();
   const [stickers, setStickers] = useState<StickerItem[]>(initialStickers);
   
-  // Gemini API Key config state
-  const [geminiKey, setGeminiKey] = useState<string>(settings.GEMINI_API_KEY || "");
-  const [isSavingKey, setIsSavingKey] = useState(false);
-  const [showKeyText, setShowKeyText] = useState(false);
-  const [hasConfiguredKey, setHasConfiguredKey] = useState<boolean>(Boolean(settings.GEMINI_API_KEY));
+  // AI Status test state
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
 
@@ -129,38 +124,7 @@ export default function AiModelStudio({
     });
   }, [stickers, filterType, searchQuery]);
 
-  // Save or delete Gemini API Key
-  const handleSaveGeminiKey = async (clear = false) => {
-    setIsSavingKey(true);
-    const keyToSave = clear ? "" : geminiKey.trim();
-
-    try {
-      const res = await fetch("/api/admin/ai-categorize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save-gemini-key",
-          apiKey: keyToSave,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setHasConfiguredKey(!clear && Boolean(keyToSave));
-        if (clear) setGeminiKey("");
-        showToast(data.message || "Model key updated");
-        router.refresh();
-      } else {
-        showToast(data.error || "Failed to save key");
-      }
-    } catch {
-      showToast("Error updating API key");
-    } finally {
-      setIsSavingKey(false);
-    }
-  };
-
-  // Test live connection to Google Gemini multimodal vision AI
+  // Test live connection to AI model
   const handleTestConnection = async () => {
     setIsTestingConnection(true);
     setConnectionResult(null);
@@ -171,7 +135,6 @@ export default function AiModelStudio({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "test-connection",
-          apiKey: geminiKey || undefined,
         }),
       });
 
@@ -179,7 +142,7 @@ export default function AiModelStudio({
       if (res.ok && data.success) {
         setConnectionResult({
           success: true,
-          message: data.message,
+          message: data.message || "Model is active and responding.",
           latencyMs: data.latencyMs,
         });
         showToast(`AI Online: ${data.latencyMs}ms`);
@@ -213,7 +176,6 @@ export default function AiModelStudio({
           action: "single",
           stickerId: sticker.id,
           apply: applyImmediately,
-          apiKey: geminiKey || undefined,
         }),
       });
 
@@ -493,7 +455,6 @@ export default function AiModelStudio({
           action: "batch",
           filter: apiFilter,
           apply,
-          apiKey: geminiKey || undefined,
           limit: 100,
         }),
       });
@@ -551,103 +512,33 @@ export default function AiModelStudio({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* 1. Header & Engine Configuration */}
-      <div className="border border-white/20 bg-[#0d0d0d] p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#b4ff39]/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/10">
+      {/* 1. Header & AI Status */}
+      <div className="border border-white/15 bg-[#0d0d0d] p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-[10px] tracking-[0.25em] font-mono px-2 py-0.5 bg-[#b4ff39]/20 text-[#b4ff39] border border-[#b4ff39]/40 font-bold">
-                ADMIN RESTRICTED // AI STUDIO
-              </span>
-              <span className="text-xs text-white/40 font-mono">STRICTLY ISOLATED TO /ADMIN</span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-wider font-display text-white">
-              REAL-TIME AI STICKER & STAMP CLASSIFIER
+            <h1 className="text-xl md:text-2xl font-bold tracking-wider font-display text-white">
+              AI STICKER & STAMP CLASSIFIER
             </h1>
-            <p className="text-xs text-white/60 mt-1 max-w-2xl font-body">
-              Real-time multimodal visual intelligence classifier powered by Google Gemini Vision. Deeply inspects sticker artwork to recognize exact subjects (Sneakers, Nike Dunks, Anime, Van Gogh Art, Postage Stamps, JDM Cars, Gaming, Music, Tech), and extracts vast, non-repeating tags and names across all fields.
+            <p className="text-xs text-white/50 mt-1 font-mono">
+              Auto-generate aesthetic tags, descriptions, and names for stickers and stamps.
             </p>
           </div>
 
-          {/* Active Model Indicator */}
-          <div className="flex flex-col gap-1 items-start lg:items-end font-mono">
-            <span className="text-[10px] text-white/40 tracking-widest uppercase">ACTIVE REASONING ENGINE</span>
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2.5 h-2.5 rounded-full animate-pulse ${
-                  hasConfiguredKey ? "bg-[#b4ff39] shadow-[0_0_12px_#b4ff39]" : "bg-cyan-400 shadow-[0_0_12px_#38bdf8]"
-                }`}
-              />
-              <span className="text-sm font-bold text-white tracking-wider">
-                {hasConfiguredKey ? "GEMINI 3.5 FLASH (REAL-TIME MULTIMODAL AI)" : "DOTT VAST AESTHETIC ENGINE"}
-              </span>
-            </div>
-            <span className="text-[10px] text-white/50">
-              {hasConfiguredKey ? "Live Multimodal Neural Vision Active (All Fields)" : "Diverse Offline Taxonomy Fallback"}
-            </span>
-          </div>
-        </div>
-
-        {/* Gemini Vision API Key Box & Test Controls */}
-        <div className="mt-6 pt-2 flex flex-col md:flex-row items-stretch md:items-center gap-4">
-          <div className="flex-1">
-            <label className="text-[11px] font-mono text-white/70 block mb-1.5 flex items-center justify-between">
-              <span>GOOGLE GEMINI MULTIMODAL VISION API KEY (ACTIVE // REAL-TIME NEURAL AI)</span>
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#b4ff39] hover:underline text-[10px]"
-              >
-                Get Free Gemini Key ↗
-              </a>
-            </label>
-            <div className="relative">
-              <input
-                type={showKeyText ? "text" : "password"}
-                value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="AIzaSy... (API Key is saved in system)"
-                className="w-full bg-black border border-white/20 px-3 py-2 text-xs font-mono text-white outline-none focus:border-[#b4ff39] transition-colors pr-16"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKeyText(!showKeyText)}
-                className="absolute right-2 top-2 text-[10px] text-white/50 hover:text-white font-mono px-1.5"
-              >
-                {showKeyText ? "HIDE" : "SHOW"}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-end gap-2 pt-5">
-            <button
-              onClick={() => handleSaveGeminiKey(false)}
-              disabled={isSavingKey}
-              className="bg-white text-black hover:bg-[#b4ff39] text-xs font-bold px-4 py-2 transition-colors disabled:opacity-50 tracking-wider font-mono h-[35px]"
-            >
-              {isSavingKey ? "SAVING..." : "SAVE KEY"}
-            </button>
-            
+          <div className="flex items-center gap-3">
             <button
               onClick={handleTestConnection}
               disabled={isTestingConnection}
-              className="border border-[#b4ff39] text-[#b4ff39] hover:bg-[#b4ff39] hover:text-black text-xs font-bold px-3 py-2 transition-colors disabled:opacity-50 tracking-wider font-mono h-[35px] flex items-center gap-1.5"
+              className="border border-white/20 hover:border-[#b4ff39] text-white hover:text-[#b4ff39] text-xs font-mono font-bold px-3.5 py-2 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
-              {isTestingConnection ? "TESTING..." : "⚡ TEST AI"}
+              {isTestingConnection ? (
+                <>
+                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                  <span>TESTING AI...</span>
+                </>
+              ) : (
+                <span>⚡ TEST AI STATUS</span>
+              )}
             </button>
-
-            {hasConfiguredKey && (
-              <button
-                onClick={() => handleSaveGeminiKey(true)}
-                disabled={isSavingKey}
-                className="border border-red-500/50 text-red-400 hover:bg-red-500/20 text-xs font-bold px-3 py-2 transition-colors disabled:opacity-50 font-mono h-[35px]"
-              >
-                REMOVE
-              </button>
-            )}
           </div>
         </div>
 
@@ -661,7 +552,9 @@ export default function AiModelStudio({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className="font-bold">{connectionResult.success ? "✓ REAL AI MODEL ONLINE:" : "✕ CONNECTION ERROR:"}</span>
+              <span className="font-bold">
+                {connectionResult.success ? "✓ AI ONLINE:" : "✕ ERROR:"}
+              </span>
               <span>{connectionResult.message}</span>
             </div>
             {connectionResult.latencyMs && (

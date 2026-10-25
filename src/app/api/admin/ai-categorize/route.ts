@@ -214,9 +214,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, stickerId, apiKey: customApiKey, apply = false, filter = "all", limit = 50 } = body;
 
-    // Check for Gemini API Key in request, DB setting, or environment
+    // Server-side only: Securely load Gemini API Key from environment or database setting
     const dbKeySetting = await prisma.siteSetting.findUnique({ where: { key: "GEMINI_API_KEY" } });
-    const activeApiKey = customApiKey || dbKeySetting?.value || process.env.GEMINI_API_KEY || null;
+    const activeApiKey = process.env.GEMINI_API_KEY || dbKeySetting?.value || null;
 
     // ACTION 1: Test AI Model Connection
     if (action === "test-connection") {
