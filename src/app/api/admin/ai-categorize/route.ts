@@ -279,6 +279,48 @@ export async function POST(req: Request) {
       }
     }
 
+    // ACTION 2B: Save all modified proposals across the page in one batch
+    if (action === "save-batch-proposals") {
+      const { updates } = body;
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return NextResponse.json({ error: "No proposals provided to save" }, { status: 400 });
+      }
+
+      const updatedItems = await Promise.all(
+        updates.map((u: any) => {
+          const cleanName = String(u.name || "").trim().toUpperCase();
+          const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          const finalSlug = u.slug || `${slugBase}-${u.slot_number || u.id}`;
+
+          return prisma.sticker.update({
+            where: { id: u.id },
+            data: {
+              name: cleanName,
+              slug: finalSlug,
+              tags: Array.isArray(u.tags) ? u.tags : [],
+              description: u.description || undefined
+            }
+          });
+        })
+      );
+
+      try {
+        revalidatePath("/", "layout");
+        revalidatePath("/");
+        revalidatePath("/vault");
+        revalidatePath("/admin");
+        revalidatePath("/stickers/[slug]", "page");
+      } catch (e) {
+        // ignore
+      }
+
+      return NextResponse.json({
+        success: true,
+        savedCount: updatedItems.length,
+        stickers: updatedItems
+      });
+    }
+
     // ACTION 3: Get model config status
     if (action === "get-config") {
       return NextResponse.json({

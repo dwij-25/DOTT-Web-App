@@ -19,6 +19,7 @@ interface StickerItem {
 
 interface AiProposal {
   name: string;
+  originalAiName?: string;
   tags: string[];
   description: string;
   model: string;
@@ -228,6 +229,7 @@ export default function AiModelStudio({
           ...prev,
           [sticker.id]: {
             name: proposalData.name,
+            originalAiName: proposalData.name,
             tags: proposalData.tags,
             description: proposalData.description,
             model: data.model || "Vision Model",
@@ -254,11 +256,163 @@ export default function AiModelStudio({
     }
   };
 
-  // Accept and apply a generated proposal to DB
+  // Pending unapplied proposals
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const pendingProposals = useMemo(() => {
+    return Object.entries(proposals)
+      .filter(([_, p]) => !p.applied)
+      .map(([stickerId, p]) => {
+        const sticker = stickers.find((s) => s.id === stickerId);
+        return {
+          id: stickerId,
+          name: p.name,
+          tags: p.tags,
+          description: p.description,
+          slot_number: sticker?.slot_number,
+        };
+      });
+  }, [proposals, stickers]);
+
+  // Update proposal name in real time
+  const handleUpdateProposalName = (stickerId: string, newName: string) => {
+    setProposals((prev) => {
+      const existing = prev[stickerId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [stickerId]: { ...existing, name: newName },
+      };
+    });
+  };
+
+  // Remove a word from proposal name on the spot
+  const handleRemoveWordFromProposal = (stickerId: string, wordIndex: number) => {
+    setProposals((prev) => {
+      const existing = prev[stickerId];
+      if (!existing) return prev;
+      const words = existing.name.split(/\s+/).filter(Boolean);
+      words.splice(wordIndex, 1);
+      const updatedName = words.join(" ").trim();
+      return {
+        ...prev,
+        [stickerId]: { ...existing, name: updatedName || existing.name },
+      };
+    });
+  };
+
+  // Reset proposal name back to original AI suggestion
+  const handleResetProposalName = (stickerId: string) => {
+    setProposals((prev) => {
+      const existing = prev[stickerId];
+      if (!existing || !existing.originalAiName) return prev;
+      return {
+        ...prev,
+        [stickerId]: { ...existing, name: existing.originalAiName },
+      };
+    });
+  };
+
+  // Remove a tag from proposal on the spot
+  const handleRemoveTagFromProposal = (stickerId: string, tagToRemove: string) => {
+    setProposals((prev) => {
+      const existing = prev[stickerId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [stickerId]: {
+          ...existing,
+          tags: existing.tags.filter((t) => t !== tagToRemove),
+        },
+      };
+    });
+  };
+
+  // Dismiss all pending proposals
+  const handleDismissAllProposals = () => {
+    if (confirm(`Dismiss all ${pendingProposals.length} pending proposals?`)) {
+      setProposals((prev) => {
+        const next = { ...prev };
+        pendingProposals.forEach((p) => {
+          delete next[p.id];
+        });
+        return next;
+      });
+      showToast("Dismissed all pending proposals");
+    }
+  };
+
+  // Overall Save: commits all pending proposals across the page to database
+  const handleSaveAllProposals = async () => {
+    if (pendingProposals.length === 0) {
+      showToast("No pending proposals to save");
+      return;
+    }
+
+    setIsSavingAll(true);
+    try {
+      const res = await fetch("/api/admin/ai-categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save-batch-proposals",
+          updates: pendingProposals.map((p) => ({
+            id: p.id,
+            name: p.name.trim().toUpperCase(),
+            tags: p.tags,
+            description: p.description,
+            slot_number: p.slot_number,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Mark all proposals as applied
+        setProposals((prev) => {
+          const next = { ...prev };
+          pendingProposals.forEach((p) => {
+            if (next[p.id]) {
+              next[p.id] = { ...next[p.id], name: p.name.trim().toUpperCase(), applied: true };
+            }
+          });
+          return next;
+        });
+
+        // Update local stickers state
+        setStickers((prev) =>
+          prev.map((s) => {
+            const matched = pendingProposals.find((p) => p.id === s.id);
+            if (matched) {
+              return {
+                ...s,
+                name: matched.name.trim().toUpperCase(),
+                tags: matched.tags,
+                description: matched.description || s.description,
+              };
+            }
+            return s;
+          })
+        );
+
+        showToast(`Successfully saved all ${data.savedCount} stickers to the store!`);
+        router.refresh();
+      } else {
+        showToast(data.error || "Failed to batch save proposals");
+      }
+    } catch (e: any) {
+      showToast(`Error saving: ${e.message}`);
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
+  // Accept and apply a single generated proposal to DB
   const handleAcceptProposal = async (sticker: StickerItem) => {
     const prop = proposals[sticker.id];
     if (!prop) return;
 
+    const finalName = prop.name.trim().toUpperCase();
     setScanningId(sticker.id);
     try {
       const res = await fetch("/api/admin/stickers", {
@@ -266,10 +420,10 @@ export default function AiModelStudio({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: sticker.id,
-          name: prop.name,
+          name: finalName,
           tags: prop.tags,
           description: prop.description,
-          slug: `${prop.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${sticker.slot_number || sticker.id}`,
+          slug: `${finalName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${sticker.slot_number || sticker.id}`,
         }),
       });
 
@@ -279,7 +433,7 @@ export default function AiModelStudio({
             s.id === sticker.id
               ? {
                   ...s,
-                  name: prop.name,
+                  name: finalName,
                   tags: prop.tags,
                   description: prop.description,
                 }
@@ -289,10 +443,10 @@ export default function AiModelStudio({
 
         setProposals((prev) => ({
           ...prev,
-          [sticker.id]: { ...prop, applied: true },
+          [sticker.id]: { ...prop, name: finalName, applied: true },
         }));
 
-        showToast(`Saved: ${prop.name}`);
+        showToast(`Saved: ${finalName}`);
       } else {
         showToast("Failed to save sticker changes");
       }
@@ -354,6 +508,7 @@ export default function AiModelStudio({
         results.forEach((r: any) => {
           newProps[r.id] = {
             name: r.newName,
+            originalAiName: r.newName,
             tags: r.tags,
             description: r.description,
             model: r.model,
@@ -586,13 +741,38 @@ export default function AiModelStudio({
           </div>
         </div>
 
-        {/* Row 2: Batch Execution Buttons */}
+        {/* Row 2: Batch Execution & Overall Save Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
-          <div className="text-xs font-mono text-white/60">
-            Showing <span className="font-bold text-white">{filteredStickers.length}</span> matching items
+          <div className="flex items-center gap-3">
+            <div className="text-xs font-mono text-white/60">
+              Showing <span className="font-bold text-white">{filteredStickers.length}</span> matching items
+            </div>
+            {pendingProposals.length > 0 && (
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold animate-pulse">
+                ⚡ {pendingProposals.length} PROPOSALS PENDING REVIEW
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {pendingProposals.length > 0 && (
+              <>
+                <button
+                  onClick={handleSaveAllProposals}
+                  disabled={isSavingAll}
+                  className="bg-[#b4ff39] hover:bg-white text-black text-xs font-black px-5 py-2 transition-all font-mono tracking-wider cursor-pointer shadow-[0_0_15px_rgba(180,255,57,0.3)] flex items-center gap-2"
+                >
+                  <span>{isSavingAll ? "SAVING ALL..." : `💾 SAVE ALL (${pendingProposals.length} PROPOSALS)`}</span>
+                </button>
+                <button
+                  onClick={handleDismissAllProposals}
+                  className="border border-white/20 hover:border-red-500 hover:text-red-400 text-white/60 text-xs font-mono px-3 py-2 transition-colors cursor-pointer"
+                >
+                  DISMISS ALL
+                </button>
+              </>
+            )}
+
             <button
               disabled={isBatchRunning || filteredStickers.length === 0}
               onClick={() => handleBatchRun(false)}
@@ -604,7 +784,7 @@ export default function AiModelStudio({
             <button
               disabled={isBatchRunning || filteredStickers.length === 0}
               onClick={() => handleBatchRun(true)}
-              className="bg-[#b4ff39] hover:bg-white text-black text-xs font-bold px-5 py-2 transition-colors disabled:opacity-40 font-mono tracking-wider cursor-pointer flex items-center gap-2"
+              className="bg-white/10 hover:bg-[#b4ff39] hover:text-black text-white text-xs font-bold px-4 py-2 transition-colors disabled:opacity-40 font-mono tracking-wider cursor-pointer flex items-center gap-2"
             >
               <span>⚡ AUTO-TAG & APPLY ALL</span>
             </button>
@@ -769,44 +949,116 @@ export default function AiModelStudio({
                 {/* AI Proposal Card (If generated) */}
                 {proposal && (
                   <div
-                    className={`p-3 border mb-4 font-mono ${
+                    className={`p-3.5 border mb-4 font-mono transition-all ${
                       proposal.applied
                         ? "bg-[#b4ff39]/5 border-[#b4ff39]/40"
-                        : "bg-cyan-950/20 border-cyan-400/30"
+                        : "bg-[#0b131e] border-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.1)]"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[9px] mb-1.5">
-                      <span className={proposal.applied ? "text-[#b4ff39] font-bold" : "text-cyan-300 font-bold"}>
-                        {proposal.applied ? "✓ SAVED TO DATABASE" : "AI PROPOSAL (PREVIEW)"}
+                    <div className="flex items-center justify-between text-[9px] mb-2">
+                      <span className={proposal.applied ? "text-[#b4ff39] font-bold" : "text-cyan-300 font-bold tracking-wider"}>
+                        {proposal.applied ? "✓ SAVED TO DATABASE" : "AI PROPOSAL (LIVE PREVIEW)"}
                       </span>
                       <span className="text-white/40">{proposal.model}</span>
                     </div>
 
-                    <div className="text-xs font-bold text-white mb-1.5">{proposal.name}</div>
+                    {/* If proposal is applied: show saved name */}
+                    {proposal.applied ? (
+                      <div className="text-xs font-bold text-white mb-2">{proposal.name}</div>
+                    ) : (
+                      /* If proposal is pending: allow editing name directly AND removing words on the spot */
+                      <div className="mb-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[9px] font-mono text-cyan-300/90 uppercase tracking-wider font-bold">
+                            EDIT NAME ON THE SPOT:
+                          </label>
+                          {proposal.originalAiName && proposal.originalAiName !== proposal.name && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetProposalName(sticker.id)}
+                              className="text-[9px] text-[#b4ff39] hover:underline font-mono"
+                              title="Reset back to original AI suggestion"
+                            >
+                              ↺ RESTORE AI
+                            </button>
+                          )}
+                        </div>
 
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {proposal.tags.map((t) => (
-                        <span
-                          key={t}
-                          className={`text-[9px] px-1.5 py-0.5 border ${getTagBadgeStyle(t)} font-bold`}
-                        >
-                          {t}
-                        </span>
-                      ))}
+                        {/* Direct text input for the name */}
+                        <input
+                          type="text"
+                          value={proposal.name}
+                          onChange={(e) => handleUpdateProposalName(sticker.id, e.target.value)}
+                          className="w-full bg-black border border-cyan-500/40 focus:border-cyan-300 px-2.5 py-1.5 text-xs font-mono font-bold text-white outline-none"
+                          placeholder="Sticker name..."
+                        />
+
+                        {/* Word chips with one-click ✕ removal buttons */}
+                        <div className="pt-0.5">
+                          <div className="text-[9px] text-white/50 mb-1 flex items-center justify-between">
+                            <span>CLICK ANY WORD TO REMOVE:</span>
+                            <span className="text-[8px] text-cyan-400/80">1-CLICK STRIP</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {proposal.name.split(/\s+/).filter(Boolean).map((word, wordIdx) => (
+                              <button
+                                key={`${word}-${wordIdx}`}
+                                type="button"
+                                onClick={() => handleRemoveWordFromProposal(sticker.id, wordIdx)}
+                                className="group inline-flex items-center gap-1 px-1.5 py-0.5 bg-black/90 border border-white/25 hover:border-red-400 hover:bg-red-950/40 text-white text-[10px] font-mono transition-all rounded-xs cursor-pointer"
+                                title={`Click to remove '${word}' from name`}
+                              >
+                                <span>{word}</span>
+                                <span className="text-red-400 group-hover:text-red-300 font-bold text-[9px] leading-none">✕</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Proposal Tags with remove button on each tag */}
+                    <div className="mb-2">
+                      <div className="text-[9px] text-white/40 mb-1 flex items-center justify-between">
+                        <span>TAGS:</span>
+                        {!proposal.applied && (
+                          <span className="text-[8px] text-white/30">CLICK ✕ TO REMOVE</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {proposal.tags.map((t) => (
+                          <span
+                            key={t}
+                            className={`text-[9px] px-1.5 py-0.5 border ${getTagBadgeStyle(t)} font-bold inline-flex items-center gap-1`}
+                          >
+                            <span>{t}</span>
+                            {!proposal.applied && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTagFromProposal(sticker.id, t)}
+                                className="hover:text-red-400 text-white/50 text-[9px] ml-0.5 font-bold cursor-pointer"
+                                title={`Remove tag ${t}`}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
                     {proposal.description && (
-                      <p className="text-[10px] text-white/60 font-body line-clamp-2">
+                      <p className="text-[10px] text-white/60 font-body line-clamp-2 mb-2">
                         {proposal.description}
                       </p>
                     )}
 
                     {!proposal.applied && (
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 pt-2 border-t border-white/10 flex items-center gap-2">
                         <button
                           onClick={() => handleAcceptProposal(sticker)}
-                          disabled={isScanning}
-                          className="flex-1 bg-[#b4ff39] hover:bg-white text-black font-bold text-[10px] py-1.5 transition-colors tracking-wider"
+                          disabled={isScanning || isSavingAll}
+                          className="flex-1 bg-[#b4ff39] hover:bg-white text-black font-bold text-[10px] py-1.5 transition-colors tracking-wider cursor-pointer"
                         >
                           ACCEPT & SAVE
                         </button>
@@ -818,7 +1070,7 @@ export default function AiModelStudio({
                               return next;
                             });
                           }}
-                          className="text-[10px] text-white/50 hover:text-white px-2 py-1.5"
+                          className="text-[10px] text-white/50 hover:text-white px-2 py-1.5 cursor-pointer"
                         >
                           DISMISS
                         </button>
@@ -856,6 +1108,50 @@ export default function AiModelStudio({
           No stickers match current filter or search criteria.
         </div>
       )}
+
+      {/* 6. Sticky Floating Overall Save Bar */}
+      <AnimatePresence>
+        {pendingProposals.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#0d0d0d]/95 backdrop-blur-md border-2 border-[#b4ff39] p-3 md:px-6 md:py-3.5 shadow-[0_0_35px_rgba(0,0,0,0.95),0_0_20px_rgba(180,255,57,0.3)] flex items-center justify-between gap-5 max-w-xl w-[92vw]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#b4ff39] animate-ping shrink-0" />
+              <div>
+                <div className="text-xs font-bold text-white font-mono flex items-center gap-2">
+                  <span>OVERALL PAGE SAVE READY</span>
+                  <span className="text-[10px] text-[#b4ff39] bg-[#b4ff39]/15 px-1.5 py-0.2 border border-[#b4ff39]/40 font-bold">
+                    {pendingProposals.length} TO COMMIT
+                  </span>
+                </div>
+                <div className="text-[10px] text-white/60 font-mono hidden sm:block">
+                  Saves all modified names, stripped words, and tags to the store at once
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveAllProposals}
+                disabled={isSavingAll}
+                className="bg-[#b4ff39] hover:bg-white text-black font-black text-xs px-5 py-2.5 font-mono tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(180,255,57,0.4)] whitespace-nowrap"
+              >
+                {isSavingAll ? "SAVING ALL..." : `💾 SAVE ALL (${pendingProposals.length})`}
+              </button>
+              <button
+                onClick={handleDismissAllProposals}
+                title="Dismiss all pending proposals"
+                className="text-[11px] text-white/50 hover:text-red-400 font-mono px-2 py-1 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
