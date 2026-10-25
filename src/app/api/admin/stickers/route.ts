@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions, checkIsAdmin } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   try {
@@ -32,6 +33,16 @@ export async function POST(req: Request) {
         is_active: true
       }
     });
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/vault");
+      revalidatePath("/admin");
+      revalidatePath(`/stickers/${sticker.slug}`);
+      revalidatePath("/stickers/[slug]", "page");
+    } catch (e) {
+      // ignore
+    }
 
     return NextResponse.json(sticker);
   } catch (error) {
@@ -64,6 +75,16 @@ export async function PATCH(req: Request) {
       where: { id },
       data: updateData
     });
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/vault");
+      revalidatePath("/admin");
+      revalidatePath(`/stickers/${sticker.slug}`);
+      revalidatePath("/stickers/[slug]", "page");
+    } catch (e) {
+      // ignore
+    }
 
     return NextResponse.json(sticker);
   } catch (error) {

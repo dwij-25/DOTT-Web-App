@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, checkIsAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 import fs from "fs";
 import path from "path";
 
@@ -344,6 +345,16 @@ export async function POST(req: Request) {
           }
         });
 
+        try {
+          revalidatePath("/");
+          revalidatePath("/vault");
+          revalidatePath("/admin");
+          revalidatePath(`/stickers/${uniqueSlug}`);
+          revalidatePath("/stickers/[slug]", "page");
+        } catch (e) {
+          // ignore
+        }
+
         return NextResponse.json({
           success: true,
           applied: true,
@@ -451,6 +462,17 @@ export async function POST(req: Request) {
           description: aiResult.description,
           model: modelUsed
         });
+      }
+
+      if (apply && updatedCount > 0) {
+        try {
+          revalidatePath("/");
+          revalidatePath("/vault");
+          revalidatePath("/admin");
+          revalidatePath("/stickers/[slug]", "page");
+        } catch (e) {
+          // ignore
+        }
       }
 
       return NextResponse.json({

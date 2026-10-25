@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, checkIsAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 // Curated aesthetic names and tags dictionary based on cyber, streetwear & y2k themes
 const CYBER_THEMES = [
@@ -74,6 +75,15 @@ export async function POST(req: Request) {
         }
       });
       updatedCount++;
+    }
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/vault");
+      revalidatePath("/admin");
+      revalidatePath("/stickers/[slug]", "page");
+    } catch (e) {
+      // ignore
     }
 
     return NextResponse.json({ 
