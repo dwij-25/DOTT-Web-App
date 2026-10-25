@@ -1,22 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, checkIsAdmin } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { email: true }
-    });
-
-    if (user?.email !== "dottdrop@gmail.com") {
+    if (!(await checkIsAdmin(session))) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

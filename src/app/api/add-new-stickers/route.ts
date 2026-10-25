@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions, checkIsAdmin } from "@/lib/auth";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!(await checkIsAdmin(session))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const files = [
     "346_20260613_154630_0000.png",
     "347_20260613_154631_0001.png",

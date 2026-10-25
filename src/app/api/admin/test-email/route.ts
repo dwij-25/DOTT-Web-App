@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, checkIsAdmin } from "@/lib/auth";
 import { verifySmtp, sendEmail } from "@/lib/email";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== "dottdrop@gmail.com") {
+  if (!(await checkIsAdmin(session))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -21,7 +21,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== "dottdrop@gmail.com") {
+  if (!(await checkIsAdmin(session))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, checkIsAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // Curated aesthetic names and tags dictionary based on cyber, streetwear & y2k themes
@@ -33,7 +33,7 @@ const CYBER_THEMES = [
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== "dottdrop@gmail.com") {
+  if (!(await checkIsAdmin(session))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

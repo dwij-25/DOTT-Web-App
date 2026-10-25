@@ -101,3 +101,21 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
 };
+
+export const ADMIN_EMAILS = ["dottdrop@gmail.com", "dwijpancholi@gmail.com"];
+
+export async function checkIsAdmin(session: any): Promise<boolean> {
+  if (!session?.user?.id && !session?.user?.email) return false;
+  if (session.user.email && ADMIN_EMAILS.includes(session.user.email)) return true;
+  if (session.user.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, email: true }
+    });
+    if (user && (ADMIN_EMAILS.includes(user.email) || user.role === "ADMIN")) {
+      return true;
+    }
+  }
+  return false;
+}
+
