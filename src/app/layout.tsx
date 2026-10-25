@@ -36,8 +36,31 @@ const pressStart2P = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.dottdrop.com"),
   title: "DOTT. | Make Your Mark.",
-  description: "Pixel stickers. Drop culture. No residue.",
+  description: "Pixel stickers. Drop culture. No residue. Collect limited cyber, streetwear & anime vinyl stickers.",
+  openGraph: {
+    title: "DOTT. | Make Your Mark.",
+    description: "Pixel stickers. Drop culture. No residue. Limited edition vinyl sticker drops.",
+    url: "https://www.dottdrop.com",
+    siteName: "DOTT DROP",
+    images: [
+      {
+        url: "/dott-icon.jpg",
+        width: 800,
+        height: 800,
+        alt: "DOTT DROP",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DOTT. | Make Your Mark.",
+    description: "Pixel stickers. Drop culture. No residue.",
+    images: ["/dott-icon.jpg"],
+  },
 };
 
 export default function RootLayout({
