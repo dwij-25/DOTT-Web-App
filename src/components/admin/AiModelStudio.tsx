@@ -1081,21 +1081,20 @@ export default function AiModelStudio({
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 border-t border-white/10 flex items-center gap-2">
+              <div className="pt-3 border-t border-white/10">
                 <button
                   onClick={() => handleScanSingle(sticker, false)}
                   disabled={isScanning || isBatchRunning}
-                  className="flex-1 border border-white/20 hover:border-white text-white text-[10px] font-mono font-bold py-1.5 transition-colors disabled:opacity-40"
+                  className="w-full border border-white/20 hover:border-[#b4ff39] hover:text-[#b4ff39] text-white text-xs font-mono font-bold py-2 transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isScanning ? "SCANNING..." : "🤖 AI SCAN"}
-                </button>
-                <button
-                  onClick={() => handleScanSingle(sticker, true)}
-                  disabled={isScanning || isBatchRunning}
-                  title="Scan with AI model and apply directly to database"
-                  className="bg-white/10 hover:bg-[#b4ff39] hover:text-black text-white text-[10px] font-mono font-bold px-3 py-1.5 transition-colors disabled:opacity-40"
-                >
-                  ⚡ SCAN & SAVE
+                  {isScanning ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span>AI SCANNING...</span>
+                    </>
+                  ) : (
+                    <span>🤖 AI SCAN</span>
+                  )}
                 </button>
               </div>
             </div>
