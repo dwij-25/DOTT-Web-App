@@ -5,18 +5,27 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 
-// Curated themes for the built-in intelligent classification model
-const AESTHETIC_STYLES = [
-  { prefix: "CYBER", subjects: ["SKULL", "SAMURAI", "VALKYRIE", "DEMON", "PHANTOM", "PULSE", "NINJA", "EYE", "DRAGON", "CORE"], tags: ["CYBERPUNK", "TECH", "STREET"], desc: "High-voltage cybernetic iconography engineered with glowing HUD optics." },
-  { prefix: "NEO-TOKYO", subjects: ["DRIFT", "KANJI", "SPEEDER", "NIGHTS", "OUTRUN", "EXPRESS", "RACER", "GRID"], tags: ["NEO-TOKYO", "ANIME", "STREET"], desc: "Midnight street-racing and anime typography straight from the underground circuit." },
-  { prefix: "ACID", subjects: ["SMILEY", "FLOWER", "LIQUID", "MELT", "MUTATION", "TRIP", "BLOSSOM", "VIBE"], tags: ["ACID", "RAVE", "Y2K"], desc: "Melting hallucinogenic graphics born from raw underground warehouse rave culture." },
-  { prefix: "CHROME", subjects: ["HEART", "CROSS", "STAR", "BARBED", "DAGGER", "ORBIT", "BLADE", "SIGIL"], tags: ["CHROME", "GOTHIC", "Y2K"], desc: "Liquid metallic chrome sculpted with sharp reflective high-gloss highlights." },
-  { prefix: "MECHA", subjects: ["UNIT-01", "TITAN", "CHASSIS", "WEAPON", "HYDRAULIC", "HELM", "SERVOS"], tags: ["MECHA", "ANIME", "TECH"], desc: "Heavy mechanized military plating with reinforced servo joints and armor decals." },
-  { prefix: "VOID", subjects: ["GLITCH", "STATIC", "PROTOCOL", "CORRUPT", "ANOMALY", "ZERO", "SHADOW"], tags: ["GLITCH", "DARKWAVE", "TECH"], desc: "Corrupted binary data matrix dissolving into obsidian dark-matter static." },
-  { prefix: "PIXEL", subjects: ["ARCADE", "BOSS", "GHOST", "INVADER", "SPRITE", "HERO", "POTION", "RELIC"], tags: ["PIXEL", "GAMING", "RETRO"], desc: "Authentic 8-bit arcade tribute rendered with crisp nostalgia and vibrant pixels." },
-  { prefix: "STAMP", subjects: ["POSTAL", "AIR MAIL", "FREQUENCY", "ARCHIVE", "TELEGRAPH", "SIGNAL", "DISPATCH"], tags: ["STAMP", "CULTURE", "RETRO"], desc: "Vintage philatelic postage stamp with serrated die-cut borders and cultural motifs." },
-  { prefix: "HOLO", subjects: ["BUTTERFLY", "SPECTRUM", "PRISM", "AURA", "CRYSTAL", "DIMENSION"], tags: ["HOLO", "Y2K", "STREET"], desc: "Iridescent holographic foil shifting color with every angle of ambient light." },
-  { prefix: "RADIOACTIVE", subjects: ["BIOHAZARD", "ISOTOPE", "WARNING", "HAZARD", "WASTE", "CORE"], tags: ["RADIOACTIVE", "STREET", "CULTURE"], desc: "Cautionary industrial biohazard warning stencil designed for high-impact visibility." }
+// Active vision models in order of performance and availability
+const VISION_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest",
+  "gemini-3.6-flash",
+  "gemini-2.5-flash"
+];
+
+// Rich aesthetic taxonomy across all fields (Sneakers, Anime, Gaming, Art, JDM, Music, Tech, Stamps, Nature, Y2K)
+const VAST_THEMATIC_CATALOG = [
+  { genre: "SNEAKERS", prefix: "SNEAKERHEAD", subjects: ["AIR JORDAN HIGH", "NIKE DUNK LOW", "YEEZY RUNNER", "AIR MAX 90", "VINTAGE BLAZER", "TRAVIS SCOTT RETRO", "CHUNKY RUNNER"], tags: ["SNEAKERS", "STREETWEAR", "NIKE", "KICKS", "FOOTWEAR", "URBAN-CULTURE", "FASHION"], desc: "High-heat sneaker silhouette crafted with authentic streetwear colorblocking and sharp vinyl cutlines." },
+  { genre: "ANIME", prefix: "NEO-TOKYO", subjects: ["SAMURAI SHINOBI", "MECHA TITAN", "CYBER EYE HUD", "BERSERK ECLIPSE", "MANGA SCREAM", "CYBERPUNK RUNNER", "KANJI DRIFT"], tags: ["ANIME", "MANGA", "NEO-TOKYO", "CYBERPUNK", "SAMURAI", "JAPAN-CULTURE", "STREET"], desc: "Hand-inked Japanese anime aesthetic featuring high-energy action lines and midnight Tokyo typography." },
+  { genre: "FINE ART", prefix: "MUSEUM", subjects: ["STARRY NIGHT", "THE GREAT WAVE", "MONA LISA GLITCH", "MICHELANGELO HANDS", "GOTHIC CATHEDRAL", "SURREALIST CLOCK"], tags: ["FINE-ART", "CLASSIC-ART", "IMPRESSIONISM", "MASTERPIECE", "AESTHETIC", "DARK-ACADEMIA", "CULTURE"], desc: "Reimagined classical art masterpiece rendered with contemporary vinyl textures and vibrant archival colors." },
+  { genre: "POSTAGE STAMP", prefix: "PHILATELIC", subjects: ["AIR MAIL TRANSIT", "FREQUENCY DISPATCH", "ROYAL POSTAL ARCHIVE", "SIGNAL SATELLITE", "VINTAGE EXPEDITION"], tags: ["STAMP", "POSTAGE", "PHILATELY", "VINTAGE", "PERFORATED", "RETRO", "MAIL-ART"], desc: "Official philatelic postage stamp design featuring authentic serrated die-cut perforations and postmark seal." },
+  { genre: "GAMING", prefix: "ARCADE", subjects: ["16-BIT BOSS", "RETRO CONTROLLER", "PIXEL HEALING POTION", "GHOST SPRITE", "CYBER REAPER", "LEGENDARY RELIC"], tags: ["GAMING", "ARCADE", "PIXEL-ART", "RETRO", "16-BIT", "GAMER-GEAR", "NOSTALGIA"], desc: "Retro arcade and console tribute forged with razor-sharp 16-bit pixel precision and neon cathode glow." },
+  { genre: "MOTORSPORT", prefix: "JDM", subjects: ["MIDNIGHT DRIFT GTR", "TURBO SUPRA", "F1 MONACO APEX", "ROTARY RX7", "BAJA RACER", "SPEEDWAY CHECKERED"], tags: ["MOTORSPORT", "JDM", "CARS", "DRIFT", "RACING", "SPEED", "STREET-CULTURE"], desc: "High-octane motorsport graphic engineered with speedline aerodynamics and underground circuit typography." },
+  { genre: "MUSIC", prefix: "LO-FI", subjects: ["CASSETTE TAPE", "VINYL WAX TURNTABLE", "BOOMBOX BASS", "SYNTHWAVE GRID", "808 DRUM MACHINE", "DISCMAN RETRO"], tags: ["MUSIC", "LO-FI", "CASSETTE", "HIP-HOP", "SYNTHWAVE", "VINYL", "BEATS"], desc: "Analog music nostalgia capturing warm magnetic tape grit, vintage typography, and underground sound." },
+  { genre: "Y2K & ACID", prefix: "ACID", subjects: ["MELTING SMILEY", "CHROME TRIBAL HEART", "HOLO BUTTERFLY", "LIQUID STAR BURST", "BARBED WIRE SIGIL", "IRIDESCENT FLOWER"], tags: ["Y2K", "ACID", "RAVE", "CHROME", "LIQUID-METAL", "CYBER-AESTHETIC", "SURREAL"], desc: "Rave-inspired liquid metal chrome and melting hallucinogenic symbols rooted in authentic 2000s subculture." },
+  { genre: "TECH & CODING", prefix: "CYBER", subjects: ["LINUX ROOT TERMINAL", "BINARY MATRIX", "GLITCH PROTOCOL", "HARDWARE MOTHERBOARD", "404 NOT FOUND", "QUANTUM CORE"], tags: ["TECH", "CODING", "CYBERPUNK", "HACKER", "GLITCH", "DEVELOPER", "LINUX"], desc: "Underground digital hacker aesthetic featuring corrupted memory dumps, ASCII sigils, and raw code optics." },
+  { genre: "NATURE & SPACE", prefix: "COSMIC", subjects: ["ASTRONAUT ZERO-G", "BLOOMING LOTUS", "OBSIDIAN WOLF", "SUPERNOVA ORBIT", "BOTANICAL SKULL", "NEBULA VOYAGER"], tags: ["SPACE", "ASTRONAUT", "NATURE", "COSMIC", "BOTANICAL", "CELESTIAL", "SCI-FI"], desc: "Interstellar celestial exploration blending deep cosmos photography with organic illustrative elements." }
 ];
 
 async function getImageBase64(imageUrl: string): Promise<{ data: string; mimeType: string } | null> {
@@ -54,62 +63,108 @@ async function getImageBase64(imageUrl: string): Promise<{ data: string; mimeTyp
 }
 
 async function analyzeWithGeminiVision(base64Data: string, mimeType: string, apiKey: string, isStamp: boolean) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  
-  const stampInstruction = isStamp
-    ? "This sticker is a postage stamp artwork. You MUST include 'STAMP' in the tags, and the name should reflect a philatelic, postal, or iconic stamp aesthetic."
-    : "If the artwork has serrated postage-stamp edges or postal cancel marks, include 'STAMP' in the tags.";
+  const stampRule = isStamp
+    ? "MANDATORY: This artwork is an official postage stamp. You MUST include 'STAMP' and 'POSTAGE' in the tags, and the name MUST feature the stamp subject + 'STAMP'."
+    : "If the artwork depicts serrated postage stamp edges, postal cancellation postmarks, or denomination numbers, include 'STAMP' and 'POSTAGE' in tags.";
 
-  const prompt = `You are the lead aesthetic curator and creative director for DOTT DROP (https://www.dottdrop.com), a cutting-edge vinyl sticker brand blending Cyberpunk, Neo-Tokyo, Streetwear, Anime, Rave, Acid, Y2K, and Stamp aesthetics.
+  const prompt = `You are the lead visual intelligence classifier and creative director for DOTT DROP (https://www.dottdrop.com), a premier vinyl sticker studio.
 
-Examine the attached sticker image in high detail.
-Identify the visual subject, symbols, characters, typography, art style, and aesthetic mood.
-${stampInstruction}
+Inspect the attached sticker artwork in high visual detail:
+1. WHAT IS THE EXACT REAL-WORLD SUBJECT? Identify the specific entity, brand, character, or object (e.g. Nike Dunk Low / Air Jordan sneaker, Vincent Van Gogh Starry Night, Pokemon Gengar, Akira motorcycle, JDM drift car, retro cassette tape, samurai warrior, cybernetic skull, cat, astronaut, mecha armor, etc).
+2. WHAT IS THE GENRE & ART STYLE? (e.g. Sneakers, Fine Art, Anime, Gaming, Motorsport, Music, Tech, Streetwear, Space, Pop-Culture, Acid, Y2K, Chrome, Pixel-Art, Vintage, Cyberpunk, Neo-Tokyo, Minimalist).
+3. ${stampRule}
 
-Return ONLY a valid JSON object with this exact structure:
+Return a rich, vast, and accurate classification across all fields. Output ONLY a valid raw JSON object matching this schema:
 {
-  "name": "SHORT 2-4 WORD ALL-CAPS STRIKING AESTHETIC NAME (e.g. ACID CHROME SKULL, NEO-TOKYO DRIFT, MECHA VOID CAT, GOTHIC WIREFRAME, CYBER EYE HUD)",
-  "tags": ["3 to 5 UPPERCASE tags chosen from: ANIME, CYBERPUNK, STREET, MECHA, Y2K, ACID, CHROME, RETRO, GOTHIC, TECH, GAMING, MEME, CULTURE, STAMP, PIXEL, HOLO"],
-  "description": "One punchy, futuristic, high-energy sentence describing this sticker artwork."
+  "name": "SHORT 2-5 WORD ALL-CAPS STRIKING AESTHETIC NAME (e.g. ABSTRACT PARRA NIKE DUNK, STARRY NIGHT POSTAGE STAMP, NEO-TOKYO DRIFT RX7, MECHA VOID PILOT, CYBER GLITCH SKULL)",
+  "tags": ["Array of 5 to 8 specific UPPERCASE tags covering Subject, Franchise/Brand, Genre, Visual Style, and Aesthetic Finish (e.g. ['SNEAKERS', 'NIKE', 'DUNK', 'STREETWEAR', 'PARRA', 'ABSTRACT', 'KICKS'])"],
+  "description": "1 to 2 punchy, vivid sentences describing the artwork, visual elements, colors, and sticker finish."
 }
 
-Do not include any explanation or markdown formatting like \`\`\`json. Output raw JSON only.`;
+Do not include any explanation or markdown formatting outside the JSON. Return raw JSON.`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
+  let lastError: Error | null = null;
+
+  for (const modelName of VISION_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
             {
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Data
-              }
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
+                  }
+                }
+              ]
             }
           ]
-        }
-      ],
-      generationConfig: {
-        response_mime_type: "application/json",
-        temperature: 0.4
-      }
-    })
-  });
+        })
+      });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini Vision Error (${response.status}): ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        // If model not found or busy, try next model in list
+        if (response.status === 404 || response.status === 429 || response.status === 503) {
+          lastError = new Error(`${modelName} (${response.status}): ${errText}`);
+          continue;
+        }
+        throw new Error(`${modelName} error (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      
+      // Find candidate part with text
+      let text = "";
+      for (const p of parts) {
+        if (p.text && p.text.includes("{")) {
+          text = p.text;
+          break;
+        }
+      }
+      if (!text && parts[0]?.text) text = parts[0].text;
+
+      if (!text) continue;
+
+      // Extract JSON using regex
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const cleaned = jsonMatch ? jsonMatch[0] : text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      // Clean tags into unique uppercase tokens
+      const rawTags: string[] = Array.isArray(parsed.tags) ? parsed.tags : [];
+      let cleanTags = Array.from(
+        new Set(
+          rawTags
+            .map((t: string) => String(t).toUpperCase().trim().replace(/[^A-Z0-9-]/g, ""))
+            .filter((t: string) => t.length >= 2)
+        )
+      ).slice(0, 8);
+
+      if (isStamp && !cleanTags.includes("STAMP")) {
+        cleanTags = ["STAMP", "POSTAGE", ...cleanTags].slice(0, 8);
+      }
+
+      return {
+        name: String(parsed.name || "AESTHETIC VINYL STICKER").toUpperCase().trim(),
+        tags: cleanTags.length > 0 ? cleanTags : ["VINYL", "ART", "COLLECTIBLE"],
+        description: String(parsed.description || "Official DOTT vinyl sticker artwork.").trim(),
+        modelUsed: modelName
+      };
+    } catch (err: any) {
+      lastError = err;
+      // Try next model
+    }
   }
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Empty response from Gemini Vision model");
-
-  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-  return JSON.parse(cleaned);
+  throw lastError || new Error("Failed to process with any Gemini Vision model");
 }
 
 function analyzeWithBuiltinEngine(sticker: any, index: number) {
@@ -117,29 +172,30 @@ function analyzeWithBuiltinEngine(sticker: any, index: number) {
   const isBoot = sticker.collection === "BOOT";
 
   if (isStamp) {
-    const stampSubjects = ["DISPATCH", "AIR MAIL", "TRANSIT", "FREQUENCY", "TELEGRAPH", "SIGNAL", "ARCHIVE", "EDITION", "STAMP"];
-    const subject = stampSubjects[(sticker.slot_number || index) % stampSubjects.length];
-    const prefix = AESTHETIC_STYLES[(sticker.slot_number || index) % (AESTHETIC_STYLES.length - 1)].prefix;
+    const stampTheme = VAST_THEMATIC_CATALOG.find(t => t.genre === "POSTAGE STAMP")!;
+    const subject = stampTheme.subjects[(sticker.slot_number || index) % stampTheme.subjects.length];
     return {
-      name: `${prefix} ${subject} #${sticker.slot_number || index + 1}`,
-      tags: ["STAMP", "CULTURE", prefix, "RETRO"].filter((v, i, a) => a.indexOf(v) === i),
-      description: `Official DOTT philatelic postage stamp in serrated vinyl finish with ${prefix.toLowerCase()} iconography.`
+      name: `${subject} #${sticker.slot_number || index + 1}`,
+      tags: ["STAMP", "POSTAGE", "PHILATELY", "VINTAGE", "PERFORATED", "COLLECTOR"],
+      description: `Official DOTT philatelic postage stamp in serrated vinyl finish with archival postal motifs.`
     };
   }
 
   if (isBoot) {
-    const bootSubjects = ["PROTOCOL", "ZERO", "BLACKOUT", "CORRUPT", "OVERCLOCK", "SHADOW"];
+    const bootSubjects = ["PROTOCOL ZERO", "BLACKOUT CORE", "CORRUPT RUNNER", "OVERCLOCK TITAN", "VOID PROTOCOL", "SHADOW MATRIX"];
     const subject = bootSubjects[(sticker.slot_number || index) % bootSubjects.length];
     return {
       name: `BOOT // ${subject}`,
-      tags: ["BOOT", "CYBERPUNK", "TECH", "STREET"],
+      tags: ["BOOT", "CYBERPUNK", "TECH", "UNDERGROUND", "DARKWAVE", "STREETWEAR"],
       description: "Classified underground boot collection sticker forged with high-durability matte vinyl."
     };
   }
 
-  const theme = AESTHETIC_STYLES[(sticker.slot_number || index) % AESTHETIC_STYLES.length];
-  const subject = theme.subjects[(Math.floor((sticker.slot_number || index) / 3)) % theme.subjects.length];
-  
+  // Pick theme deterministically but with rich variety
+  const theme = VAST_THEMATIC_CATALOG[(sticker.slot_number || index) % VAST_THEMATIC_CATALOG.length];
+  const subjectIndex = Math.floor((sticker.slot_number || index) / VAST_THEMATIC_CATALOG.length) % theme.subjects.length;
+  const subject = theme.subjects[subjectIndex];
+
   return {
     name: `${theme.prefix} ${subject}`,
     tags: [...theme.tags],
@@ -161,27 +217,72 @@ export async function POST(req: Request) {
     const dbKeySetting = await prisma.siteSetting.findUnique({ where: { key: "GEMINI_API_KEY" } });
     const activeApiKey = customApiKey || dbKeySetting?.value || process.env.GEMINI_API_KEY || null;
 
-    // ACTION 1: Save or remove Gemini API Key
+    // ACTION 1: Test AI Model Connection
+    if (action === "test-connection") {
+      if (!activeApiKey) {
+        return NextResponse.json({
+          success: false,
+          model: "None",
+          message: "No Gemini API key is configured. Please add an API key."
+        });
+      }
+
+      const startTime = Date.now();
+      try {
+        const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${activeApiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Respond with JSON: {\"status\": \"ok\", \"model\": \"gemini-3.5-flash\"}" }] }]
+          })
+        });
+
+        const latencyMs = Date.now() - startTime;
+        if (testRes.ok) {
+          return NextResponse.json({
+            success: true,
+            model: "gemini-3.5-flash",
+            latencyMs,
+            message: `Real AI Multimodal Vision model is ONLINE and active (${latencyMs}ms response time).`
+          });
+        } else {
+          const errText = await testRes.text();
+          return NextResponse.json({
+            success: false,
+            model: "gemini-3.5-flash",
+            latencyMs,
+            error: `API returned status ${testRes.status}: ${errText}`
+          });
+        }
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          error: `Connection error: ${err.message}`
+        });
+      }
+    }
+
+    // ACTION 2: Save or remove Gemini API Key
     if (action === "save-gemini-key") {
       const { apiKey } = body;
       if (apiKey) {
         await prisma.siteSetting.upsert({
           where: { key: "GEMINI_API_KEY" },
           update: { value: apiKey.trim() },
-          create: { key: "GEMINI_API_KEY", value: apiKey.trim(), description: "Google Gemini Vision API Key for Auto-Tagging" }
+          create: { key: "GEMINI_API_KEY", value: apiKey.trim(), description: "Google Gemini Vision API Key for Real-Time Auto-Tagging" }
         });
-        return NextResponse.json({ success: true, message: "Gemini API Key configured successfully" });
+        return NextResponse.json({ success: true, message: "Gemini Vision API Key configured successfully" });
       } else {
         await prisma.siteSetting.deleteMany({ where: { key: "GEMINI_API_KEY" } });
-        return NextResponse.json({ success: true, message: "Gemini API Key removed. Using Built-in Vision Model." });
+        return NextResponse.json({ success: true, message: "Gemini API Key removed. Using Vast Built-in Taxonomy." });
       }
     }
 
-    // ACTION 2: Get model config status
+    // ACTION 3: Get model config status
     if (action === "get-config") {
       return NextResponse.json({
         hasGeminiKey: Boolean(activeApiKey),
-        modelType: activeApiKey ? "Gemini 1.5 Flash Vision" : "DOTT Built-in Vision Engine",
+        modelType: activeApiKey ? "Gemini 3.5 Flash Vision (Live Neural AI)" : "DOTT Built-in Vast Vision Engine",
         totalStickers: await prisma.sticker.count(),
         stampsCount: await prisma.sticker.count({ where: { tags: { has: "STAMP" } } }),
         genericCount: await prisma.sticker.count({
@@ -197,25 +298,30 @@ export async function POST(req: Request) {
       });
     }
 
-    // ACTION 3: Analyze single sticker
+    // ACTION 4: Analyze single sticker
     if (action === "single" && stickerId) {
       const sticker = await prisma.sticker.findUnique({ where: { id: stickerId } });
       if (!sticker) return NextResponse.json({ error: "Sticker not found" }, { status: 404 });
 
       const isStamp = (sticker.tags || []).includes("STAMP") || [9, 13, 20, 25, 47, 65, 66, 67, 74, 86, 90, 174, 221, 222, 223, 224, 225, 226, 227, 233, 245, 253, 268, 275, 286, 334, 340, 341, 342].includes(sticker.slot_number || 0);
 
-      let aiResult;
-      let usedModel = "Built-in Vision Engine";
+      let aiResult: any = null;
+      let usedModel = "Built-in Vast Vision Engine";
 
       if (activeApiKey) {
         try {
           const img = await getImageBase64(sticker.image_url);
           if (img) {
-            aiResult = await analyzeWithGeminiVision(img.data, img.mimeType, activeApiKey, isStamp);
-            usedModel = "Gemini 1.5 Flash Vision";
+            const visionData = await analyzeWithGeminiVision(img.data, img.mimeType, activeApiKey, isStamp);
+            aiResult = {
+              name: visionData.name,
+              tags: visionData.tags,
+              description: visionData.description
+            };
+            usedModel = `${visionData.modelUsed} (Multimodal Neural AI)`;
           }
         } catch (visionErr: any) {
-          console.warn("Gemini Vision failed, falling back to built-in engine:", visionErr.message);
+          console.warn("Gemini Vision failed, falling back to vast built-in engine:", visionErr.message);
         }
       }
 
@@ -255,7 +361,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // ACTION 4: Batch analyze and classify stickers
+    // ACTION 5: Batch analyze and classify stickers
     if (action === "batch") {
       let whereClause: any = {};
       if (filter === "generic_only") {
@@ -293,19 +399,25 @@ export async function POST(req: Request) {
         const s = stickers[i];
         const isStamp = (s.tags || []).includes("STAMP") || [9, 13, 20, 25, 47, 65, 66, 67, 74, 86, 90, 174, 221, 222, 223, 224, 225, 226, 227, 233, 245, 253, 268, 275, 286, 334, 340, 341, 342].includes(s.slot_number || 0);
 
-        let aiResult;
-        let modelUsed = "Built-in Vision";
+        let aiResult: any = null;
+        let modelUsed = "Built-in Vast Vision Engine";
 
-        // For batch processing: if Gemini API key exists, analyze with Gemini; throttle slightly to respect rate limits
-        if (activeApiKey && i < 15) { // Process up to 15 per batch run with Gemini to avoid request timeout
+        if (activeApiKey) {
           try {
             const img = await getImageBase64(s.image_url);
             if (img) {
-              aiResult = await analyzeWithGeminiVision(img.data, img.mimeType, activeApiKey, isStamp);
-              modelUsed = "Gemini Vision";
+              const visionData = await analyzeWithGeminiVision(img.data, img.mimeType, activeApiKey, isStamp);
+              aiResult = {
+                name: visionData.name,
+                tags: visionData.tags,
+                description: visionData.description
+              };
+              modelUsed = `${visionData.modelUsed} (Neural AI)`;
+              // Short delay to avoid rate limiting
+              await new Promise(r => setTimeout(r, 200));
             }
           } catch (e) {
-            // fallback to builtin
+            // fallback to vast engine
           }
         }
 

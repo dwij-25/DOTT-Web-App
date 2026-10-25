@@ -27,6 +27,21 @@ interface AiProposal {
 
 const STAMP_SLOTS = [9, 13, 20, 25, 47, 65, 66, 67, 74, 86, 90, 174, 221, 222, 223, 224, 225, 226, 227, 233, 245, 253, 268, 275, 286, 334, 340, 341, 342];
 
+const getTagBadgeStyle = (tag: string) => {
+  const t = tag.toUpperCase();
+  if (t === "STAMP" || t === "POSTAGE" || t === "PHILATELY") return "bg-amber-500/20 text-amber-300 border-amber-500/40";
+  if (t === "SNEAKERS" || t === "NIKE" || t === "KICKS" || t === "DUNK") return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+  if (t === "ANIME" || t === "MANGA" || t === "SAMURAI") return "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40";
+  if (t === "GAMING" || t === "ARCADE" || t === "PIXEL-ART" || t === "16-BIT") return "bg-cyan-500/20 text-cyan-300 border-cyan-500/40";
+  if (t === "FINE-ART" || t === "ART" || t === "IMPRESSIONISM" || t === "MASTERPIECE") return "bg-rose-500/20 text-rose-300 border-rose-500/40";
+  if (t === "MOTORSPORT" || t === "JDM" || t === "CARS" || t === "DRIFT") return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+  if (t === "MUSIC" || t === "LO-FI" || t === "CASSETTE" || t === "VINYL") return "bg-teal-500/20 text-teal-300 border-teal-500/40";
+  if (t === "TECH" || t === "CYBERPUNK" || t === "HACKER" || t === "LINUX") return "bg-blue-500/20 text-blue-300 border-blue-500/40";
+  if (t === "SPACE" || t === "COSMIC" || t === "ASTRONAUT") return "bg-purple-500/20 text-purple-300 border-purple-500/40";
+  if (t === "Y2K" || t === "ACID" || t === "CHROME" || t === "HOLO") return "bg-lime-500/20 text-lime-300 border-lime-500/40";
+  return "bg-white/10 text-white/80 border-white/15";
+};
+
 export default function AiModelStudio({
   stickers: initialStickers,
   settings = {},
@@ -44,6 +59,8 @@ export default function AiModelStudio({
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [showKeyText, setShowKeyText] = useState(false);
   const [hasConfiguredKey, setHasConfiguredKey] = useState<boolean>(Boolean(settings.GEMINI_API_KEY));
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
 
   // Filters & Search
   const [filterType, setFilterType] = useState<"ALL" | "STAMPS" | "GENERIC" | "BOOT" | "STANDARD">("ALL");
@@ -139,6 +156,47 @@ export default function AiModelStudio({
       showToast("Error updating API key");
     } finally {
       setIsSavingKey(false);
+    }
+  };
+
+  // Test live connection to Google Gemini multimodal vision AI
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setConnectionResult(null);
+
+    try {
+      const res = await fetch("/api/admin/ai-categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test-connection",
+          apiKey: geminiKey || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setConnectionResult({
+          success: true,
+          message: data.message,
+          latencyMs: data.latencyMs,
+        });
+        showToast(`AI Online: ${data.latencyMs}ms`);
+      } else {
+        setConnectionResult({
+          success: false,
+          message: data.error || data.message || "Failed to reach AI model",
+        });
+        showToast("AI test failed");
+      }
+    } catch (e: any) {
+      setConnectionResult({
+        success: false,
+        message: `Connection error: ${e.message}`,
+      });
+      showToast("Network error testing AI");
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -351,10 +409,10 @@ export default function AiModelStudio({
               <span className="text-xs text-white/40 font-mono">STRICTLY ISOLATED TO /ADMIN</span>
             </div>
             <h1 className="text-2xl font-bold tracking-wider font-display text-white">
-              AI STICKER & STAMP CLASSIFIER
+              REAL-TIME AI STICKER & STAMP CLASSIFIER
             </h1>
             <p className="text-xs text-white/60 mt-1 max-w-2xl font-body">
-              Automated visual understanding and semantic categorization model. Inspects sticker artwork, classifies iconography (Cyberpunk, Neo-Tokyo, Rave, Y2K, Mecha, Acid), tags postal stamps, and generates high-impact naming.
+              Real-time multimodal visual intelligence classifier powered by Google Gemini Vision. Deeply inspects sticker artwork to recognize exact subjects (Sneakers, Nike Dunks, Anime, Van Gogh Art, Postage Stamps, JDM Cars, Gaming, Music, Tech), and extracts vast, non-repeating tags and names across all fields.
             </p>
           </div>
 
@@ -363,25 +421,25 @@ export default function AiModelStudio({
             <span className="text-[10px] text-white/40 tracking-widest uppercase">ACTIVE REASONING ENGINE</span>
             <div className="flex items-center gap-2">
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full animate-pulse ${
                   hasConfiguredKey ? "bg-[#b4ff39] shadow-[0_0_12px_#b4ff39]" : "bg-cyan-400 shadow-[0_0_12px_#38bdf8]"
                 }`}
               />
               <span className="text-sm font-bold text-white tracking-wider">
-                {hasConfiguredKey ? "GEMINI 1.5 FLASH VISION" : "DOTT AESTHETIC VISION (BUILT-IN)"}
+                {hasConfiguredKey ? "GEMINI 3.5 FLASH (REAL-TIME MULTIMODAL AI)" : "DOTT VAST AESTHETIC ENGINE"}
               </span>
             </div>
             <span className="text-[10px] text-white/50">
-              {hasConfiguredKey ? "Multimodal Vision API Enabled" : "Deterministic Aesthetic Vision Classifier"}
+              {hasConfiguredKey ? "Live Multimodal Neural Vision Active (All Fields)" : "Diverse Offline Taxonomy Fallback"}
             </span>
           </div>
         </div>
 
-        {/* Gemini Vision API Key Box */}
+        {/* Gemini Vision API Key Box & Test Controls */}
         <div className="mt-6 pt-2 flex flex-col md:flex-row items-stretch md:items-center gap-4">
           <div className="flex-1">
             <label className="text-[11px] font-mono text-white/70 block mb-1.5 flex items-center justify-between">
-              <span>GOOGLE GEMINI API KEY (OPTIONAL // ENABLES LIVE NEURAL VISION)</span>
+              <span>GOOGLE GEMINI MULTIMODAL VISION API KEY (ACTIVE // REAL-TIME NEURAL AI)</span>
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
@@ -396,7 +454,7 @@ export default function AiModelStudio({
                 type={showKeyText ? "text" : "password"}
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="AIzaSy... (leave blank to run Built-in Aesthetic Classifier)"
+                placeholder="AIzaSy... (API Key is saved in system)"
                 className="w-full bg-black border border-white/20 px-3 py-2 text-xs font-mono text-white outline-none focus:border-[#b4ff39] transition-colors pr-16"
               />
               <button
@@ -417,6 +475,15 @@ export default function AiModelStudio({
             >
               {isSavingKey ? "SAVING..." : "SAVE KEY"}
             </button>
+            
+            <button
+              onClick={handleTestConnection}
+              disabled={isTestingConnection}
+              className="border border-[#b4ff39] text-[#b4ff39] hover:bg-[#b4ff39] hover:text-black text-xs font-bold px-3 py-2 transition-colors disabled:opacity-50 tracking-wider font-mono h-[35px] flex items-center gap-1.5"
+            >
+              {isTestingConnection ? "TESTING..." : "⚡ TEST AI"}
+            </button>
+
             {hasConfiguredKey && (
               <button
                 onClick={() => handleSaveGeminiKey(true)}
@@ -428,6 +495,27 @@ export default function AiModelStudio({
             )}
           </div>
         </div>
+
+        {/* Live Connection Test Banner */}
+        {connectionResult && (
+          <div
+            className={`mt-4 p-3 border font-mono text-xs flex items-center justify-between ${
+              connectionResult.success
+                ? "bg-[#b4ff39]/10 border-[#b4ff39] text-[#b4ff39]"
+                : "bg-red-950/20 border-red-500/50 text-red-400"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-bold">{connectionResult.success ? "✓ REAL AI MODEL ONLINE:" : "✕ CONNECTION ERROR:"}</span>
+              <span>{connectionResult.message}</span>
+            </div>
+            {connectionResult.latencyMs && (
+              <span className="text-[10px] bg-black px-2 py-0.5 border border-white/20 text-white">
+                {connectionResult.latencyMs}ms LATENCY
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 2. Catalog Insights Stats Cards */}
@@ -665,7 +753,7 @@ export default function AiModelStudio({
                       sticker.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-[9px] font-mono px-1.5 py-0.5 bg-white/10 text-white/80 border border-white/10"
+                          className={`text-[9px] font-mono px-1.5 py-0.5 border ${getTagBadgeStyle(tag)}`}
                         >
                           {tag}
                         </span>
@@ -700,11 +788,7 @@ export default function AiModelStudio({
                       {proposal.tags.map((t) => (
                         <span
                           key={t}
-                          className={`text-[9px] px-1.5 py-0.5 border ${
-                            proposal.applied
-                              ? "bg-[#b4ff39]/20 text-[#b4ff39] border-[#b4ff39]/40"
-                              : "bg-cyan-400/20 text-cyan-200 border-cyan-400/40"
-                          }`}
+                          className={`text-[9px] px-1.5 py-0.5 border ${getTagBadgeStyle(t)} font-bold`}
                         >
                           {t}
                         </span>
