@@ -10,37 +10,103 @@ import { usePathname, useRouter } from "next/navigation";
 
 export default function StandardVault({ initialStickers, limit }: { initialStickers: Sticker[], limit?: number }) {
   const [search, setSearch] = useState("");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeTab, setActiveTab] = useState<"STICKERS" | "STAMPS" | "POSTERS">("STICKERS");
   const pathname = usePathname();
+  const router = useRouter();
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Compute tag frequencies across all active stickers, sorted by most used first
+  const tagFrequencies = useMemo(() => {
+    const counts: Record<string, number> = {};
+    initialStickers.forEach(st => {
+      (st.tags || []).forEach(rawTag => {
+        const t = rawTag.trim().toUpperCase();
+        if (t && t !== "STANDARD" && t !== "BOOT" && t !== "DROP") {
+          counts[t] = (counts[t] || 0) + 1;
+        }
+      });
+    });
+    // Most used tag first, least used last
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [initialStickers]);
+
+  // Handle click outside to close suggestions
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Compute live suggestions when user types in search
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return { tags: [], stickers: [] };
+
+    const matchingTags = tagFrequencies
+      .filter(([tag]) => tag.toLowerCase().includes(q))
+      .slice(0, 5);
+
+    const matchingStickers = initialStickers
+      .filter(st => {
+        const nameMatch = st.name.toLowerCase().includes(q);
+        const tagMatch = st.tags?.some(t => t.toLowerCase().includes(q));
+        return nameMatch || tagMatch;
+      })
+      .slice(0, 6);
+
+    return { tags: matchingTags, stickers: matchingStickers };
+  }, [search, tagFrequencies, initialStickers]);
 
   // We generate at least 250 slots, but if there are more stickers we extend the vault.
   const maxSlot = Math.max(250, ...initialStickers.map(st => st.slot_number || 0));
-  const slots = Array.from({ length: maxSlot }, (_, i) => {
-    const s = initialStickers.find(st => st.slot_number === i + 1);
-    return s || { slot_number: i + 1, is_empty: true };
-  });
+  const slots = useMemo(() => {
+    return Array.from({ length: maxSlot }, (_, i) => {
+      const s = initialStickers.find(st => st.slot_number === i + 1);
+      return s || { slot_number: i + 1, is_empty: true };
+    });
+  }, [maxSlot, initialStickers]);
 
-  const filteredSlots = slots.filter((slot: any) => {
-    const tags = slot.tags || [];
-    const isStamp = tags.includes("STAMP");
-    const isPoster = tags.includes("POSTER");
-    
-    if (activeTab === "STAMPS" && !isStamp) return false;
-    if (activeTab === "POSTERS" && !isPoster) return false;
-    if (activeTab === "STICKERS" && (isStamp || isPoster)) return false;
-
-    if (slot.is_empty) {
-      // Hide empty slots in STAMPS and POSTERS tabs to keep layout tight
-      if (activeTab !== "STICKERS") return false;
-      return true;
-    }
-    
-    // Text search
-    const searchMatch = search === "" || 
-      slot.name.toLowerCase().includes(search.toLowerCase());
+  const filteredSlots = useMemo(() => {
+    return slots.filter((slot: any) => {
+      const tags: string[] = slot.tags || [];
+      const isStamp = tags.includes("STAMP");
+      const isPoster = tags.includes("POSTER");
       
-    return searchMatch;
-  });
+      if (activeTab === "STAMPS" && !isStamp) return false;
+      if (activeTab === "POSTERS" && !isPoster) return false;
+      if (activeTab === "STICKERS" && (isStamp || isPoster)) return false;
+
+      // Empty slot handling
+      if (slot.is_empty) {
+        if (activeTab !== "STICKERS") return false;
+        // If user is searching or has selected a tag, hide empty slots
+        if (search.trim() !== "" || selectedTag !== null) return false;
+        return true;
+      }
+      
+      // Selected tag filter
+      if (selectedTag) {
+        const hasTag = tags.some(t => t.toUpperCase() === selectedTag.toUpperCase());
+        if (!hasTag) return false;
+      }
+
+      // Search text filter: matches sticker name OR any of its tags
+      if (search.trim() !== "") {
+        const q = search.toLowerCase();
+        const nameMatch = slot.name?.toLowerCase().includes(q);
+        const tagMatch = tags.some((t: string) => t.toLowerCase().includes(q));
+        if (!nameMatch && !tagMatch) return false;
+      }
+        
+      return true;
+    });
+  }, [slots, activeTab, search, selectedTag]);
 
   const [visibleCount, setVisibleCount] = useState(limit || 40);
   const displayedSlots = limit ? filteredSlots.slice(0, limit) : filteredSlots.slice(0, visibleCount);
@@ -50,7 +116,7 @@ export default function StandardVault({ initialStickers, limit }: { initialStick
       <div className="max-w-7xl mx-auto">
         {/* Futuristic Marquee Header */}
         <div className="relative overflow-hidden mb-12 border-y border-white/20 py-6 -mx-8 md:-mx-16 lg:-mx-24 bg-white/5">
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay" />
+          <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:16px_16px] opacity-10 pointer-events-none" />
           <motion.div
             animate={{ x: ["0%", "-50%"] }}
             transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
@@ -78,7 +144,7 @@ export default function StandardVault({ initialStickers, limit }: { initialStick
               href="/custom"
               className="group relative flex flex-col md:flex-row md:items-center justify-between w-full border border-white/20 bg-[#0D0D0D] p-6 hover:border-[#b4ff39]/50 transition-colors overflow-hidden gap-6"
             >
-              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:16px_16px]" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex flex-col">
                   <div className="text-[#b4ff39] font-pixel text-[10px] tracking-[0.2em] mb-1">/// SYSTEM OVERRIDE</div>
@@ -127,19 +193,164 @@ export default function StandardVault({ initialStickers, limit }: { initialStick
           </div>
         </div>
 
-        {/* Sticky Search Bar */}
-        {pathname !== '/' && activeTab === "STICKERS" && (
-          <div className="sticky top-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-md border border-white/20 p-4 mb-12 flex items-center">
-            <span className="text-white/50 mr-4">●</span>
-            <input
-              type="text"
-              placeholder="Search stickers..."
-              className="bg-transparent border-none outline-none text-white w-full font-body placeholder:text-white/30"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="text-white/50 hover:text-white px-2">✕</button>
+        {/* Search & Popular Tags Section */}
+        {pathname !== '/' && (
+          <div ref={searchRef} className="mb-12 relative z-50">
+            {/* Search Input Bar */}
+            <div className="bg-[#121212] border-2 border-white/20 p-3.5 flex items-center gap-3 rounded-lg shadow-xl focus-within:border-[#b4ff39] transition-colors relative">
+              <span className="text-[#b4ff39] font-mono text-sm">✦</span>
+              <input
+                type="text"
+                placeholder="Search stickers by name or tag (e.g. anime, cassette, retro)..."
+                className="bg-transparent border-none outline-none text-white w-full font-body text-sm placeholder:text-white/30"
+                value={search}
+                onFocus={() => setShowSuggestions(true)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowSuggestions(false);
+                }}
+              />
+              {search && (
+                <button 
+                  onClick={() => {
+                    setSearch("");
+                    setShowSuggestions(false);
+                  }} 
+                  className="text-white/50 hover:text-white px-2 text-sm font-mono cursor-pointer"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Live Autocomplete Suggestions Dropdown */}
+            {showSuggestions && search.trim().length > 0 && (suggestions.tags.length > 0 || suggestions.stickers.length > 0) && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-[#0E0E0E] border-2 border-[#b4ff39]/60 rounded-lg shadow-[0_10px_35px_rgba(0,0,0,0.9)] overflow-hidden z-[60] backdrop-blur-xl animate-in fade-in duration-200">
+                {/* Matching Tags */}
+                {suggestions.tags.length > 0 && (
+                  <div className="p-3 border-b border-white/10">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-[#b4ff39] mb-2 flex items-center gap-2">
+                      <span>🏷️</span> MATCHING TAGS
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestions.tags.map(([tag, count]) => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            setSelectedTag(tag);
+                            setSearch("");
+                            setShowSuggestions(false);
+                          }}
+                          className="bg-white/10 hover:bg-[#b4ff39] hover:text-black text-white text-xs px-2.5 py-1 rounded font-mono uppercase tracking-wide transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>{tag}</span>
+                          <span className="text-[10px] opacity-60">({count})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Matching Stickers */}
+                {suggestions.stickers.length > 0 && (
+                  <div className="p-2">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-[#b4ff39] px-2 py-1 flex items-center gap-2">
+                      <span>⚡</span> MATCHING STICKERS
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mt-1">
+                      {suggestions.stickers.map((stk) => (
+                        <Link
+                          key={stk.id}
+                          href={`/stickers/${stk.slug}`}
+                          onClick={() => setShowSuggestions(false)}
+                          className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-md transition-colors group cursor-pointer"
+                        >
+                          <div className="relative w-10 h-10 bg-black/60 rounded border border-white/10 shrink-0 overflow-hidden">
+                            <Image
+                              src={stk.image_url}
+                              alt={cleanDisplayName(stk.name)}
+                              fill
+                              sizes="40px"
+                              className="object-contain p-1"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-white group-hover:text-[#b4ff39] truncate uppercase font-display">
+                              {cleanDisplayName(stk.name)}
+                            </div>
+                            <div className="text-[10px] font-mono text-white/50 flex items-center gap-2">
+                              <span>₹{stk.price / 100}</span>
+                              {stk.tags?.[0] && <span>· {stk.tags[0]}</span>}
+                            </div>
+                          </div>
+                          <span className="text-white/40 group-hover:text-[#b4ff39] text-xs font-mono">→</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Popular Tags Horizontal Bar (Ordered: Most used first -> least used last) */}
+            {tagFrequencies.length > 0 && (
+              <div className="mt-4 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white/50 font-mono text-[10px] tracking-widest uppercase flex items-center gap-1.5">
+                    <span className="text-[#b4ff39]">///</span> FILTER BY POPULAR TAGS (MOST USED FIRST):
+                  </span>
+                  {(selectedTag || search) && (
+                    <button
+                      onClick={() => {
+                        setSelectedTag(null);
+                        setSearch("");
+                      }}
+                      className="text-[#b4ff39] hover:underline text-[10px] font-mono uppercase tracking-wider cursor-pointer"
+                    >
+                      RESET FILTERS ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                  {/* ALL Pill */}
+                  <button
+                    onClick={() => setSelectedTag(null)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider transition-all cursor-pointer ${
+                      selectedTag === null
+                        ? "bg-[#b4ff39] text-black font-extrabold shadow-[0_0_12px_rgba(180,255,57,0.4)]"
+                        : "bg-white/5 border border-white/15 text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    ALL ({initialStickers.length})
+                  </button>
+
+                  {/* Individual Tags sorted by frequency: highest to lowest */}
+                  {tagFrequencies.map(([tag, count]) => {
+                    const isSelected = selectedTag?.toUpperCase() === tag.toUpperCase();
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setSelectedTag(isSelected ? null : tag)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isSelected
+                            ? "bg-[#b4ff39] text-black font-extrabold shadow-[0_0_12px_rgba(180,255,57,0.4)]"
+                            : "bg-white/5 border border-white/15 text-white/70 hover:bg-white/10 hover:text-white hover:border-white/30"
+                        }`}
+                      >
+                        <span>{tag}</span>
+                        <span className={`text-[10px] ${isSelected ? "text-black/70 font-bold" : "text-white/40"}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -504,8 +715,8 @@ function VaultCard({ slot }: { slot: any }) {
       <div className="w-full h-full rounded-lg overflow-hidden flex flex-col bg-[#111] border border-white/10 shadow-lg">
         {/* Top Image Section */}
         <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
-          {/* Retro filter / noise */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40 mix-blend-overlay z-10 pointer-events-none" />
+          {/* Retro subtle texture */}
+          <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:16px_16px] opacity-10 z-10 pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 z-0 pointer-events-none" />
           
           {/* Floating color pixels behind the image */}
@@ -557,26 +768,19 @@ function VaultCard({ slot }: { slot: any }) {
           </div>
 
           {/* Top metadata tags & Price */}
-          <div className="px-3 pt-2 pb-0.5 flex flex-col justify-between relative z-10">
-            <div className="flex items-center justify-between gap-1 mb-0.5">
-              <span className="text-black/60 text-[7px] md:text-[8px] font-pixel uppercase tracking-widest truncate max-w-[130px]">
-                {slot.tags?.[0] || 'VINYL'}
-              </span>
-              
-              {/* Price display with discounted original price */}
-              <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
-                <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
-                <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
-              </div>
-            </div>
-
-            {/* Sticker Name: Enlarged writeup, bold & visible */}
-            <h4 
-              className="text-black font-extrabold text-[11px] md:text-[13px] tracking-tight font-display truncate uppercase leading-tight" 
+          <div className="px-3 pt-2 pb-1 flex items-center justify-between gap-2 relative z-10">
+            <span 
+              className="text-black font-extrabold text-[10px] md:text-[11px] font-display uppercase tracking-tight truncate max-w-[145px]" 
               title={cleanDisplayName(slot.name)}
             >
               {cleanDisplayName(slot.name)}
-            </h4>
+            </span>
+            
+            {/* Price display with discounted original price */}
+            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
+              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+              <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
+            </div>
           </div>
           
           {/* Full-width Y2K Dot Chevron Slider Button (extended to bottom) */}
@@ -670,8 +874,8 @@ function StampCard({ slot }: { slot: any }) {
       <div className="w-full h-full rounded-lg overflow-hidden flex flex-col bg-[#111] border border-white/10 shadow-lg">
         {/* Top Image Section */}
         <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
-          {/* Retro filter / noise */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40 mix-blend-overlay z-10 pointer-events-none" />
+          {/* Retro subtle texture */}
+          <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:16px_16px] opacity-10 z-10 pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 z-0 pointer-events-none" />
           
           {/* Floating color pixels behind the image - PURPLE */}
@@ -723,26 +927,19 @@ function StampCard({ slot }: { slot: any }) {
           </div>
 
           {/* Top metadata tags & Price */}
-          <div className="px-3 pt-2 pb-0.5 flex flex-col justify-between relative z-10">
-            <div className="flex items-center justify-between gap-1 mb-0.5">
-              <span className="text-black/60 text-[7px] md:text-[8px] font-pixel uppercase tracking-widest truncate max-w-[130px]">
-                {slot.tags?.[0] || 'STAMP'}
-              </span>
-              
-              {/* Price display with discounted original price */}
-              <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
-                <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
-                <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
-              </div>
-            </div>
-
-            {/* Sticker Name: Enlarged writeup, bold & visible */}
-            <h4 
-              className="text-black font-extrabold text-[11px] md:text-[13px] tracking-tight font-display truncate uppercase leading-tight" 
+          <div className="px-3 pt-2 pb-1 flex items-center justify-between gap-2 relative z-10">
+            <span 
+              className="text-black font-extrabold text-[10px] md:text-[11px] font-display uppercase tracking-tight truncate max-w-[145px]" 
               title={cleanDisplayName(slot.name)}
             >
               {cleanDisplayName(slot.name)}
-            </h4>
+            </span>
+            
+            {/* Price display with discounted original price */}
+            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
+              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+              <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
+            </div>
           </div>
           
           {/* Full-width Y2K Dot Chevron Slider Button - PURPLE ACCENTED (extended to bottom) */}

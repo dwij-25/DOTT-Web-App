@@ -25,18 +25,39 @@ export default function StickerDetailClient({
   sticker: Sticker;
   recommendations?: Sticker[];
 }) {
+  const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
   const isOutOfStock = sticker.stock === 0;
+
+  const currentCartItem = items.find(i => i.sticker.id === sticker.id);
+  const currentQty = currentCartItem ? currentCartItem.quantity : 0;
 
   const priceInRs = sticker.price ? sticker.price / 100 : 20;
   const freeShippingThreshold = 350;
   const minStickersForFreeShipping = Math.max(1, Math.ceil(freeShippingThreshold / priceInRs));
   const freeShippingTotal = minStickersForFreeShipping * priceInRs;
 
-  const handleAdd = (itemToAdd: Sticker = sticker) => {
-    addItem(itemToAdd);
-    useUIStore.getState().setToastMessage(`ADDED ${cleanDisplayName(itemToAdd.name)} TO PACK`);
+  const handleIncrement = (itemToModify: Sticker = sticker) => {
+    addItem(itemToModify);
+    const existing = items.find(i => i.sticker.id === itemToModify.id);
+    const nextQty = (existing ? existing.quantity : 0) + 1;
+    useUIStore.getState().setToastMessage(`PACK: ${cleanDisplayName(itemToModify.name)} (${nextQty})`);
     setTimeout(() => useUIStore.getState().setToastMessage(null), 2000);
+  };
+
+  const handleDecrement = (itemToModify: Sticker = sticker) => {
+    const existing = items.find(i => i.sticker.id === itemToModify.id);
+    const cur = existing ? existing.quantity : 0;
+    if (cur > 0) {
+      updateQuantity(itemToModify.id, cur - 1);
+      if (cur - 1 === 0) {
+        useUIStore.getState().setToastMessage(`REMOVED ${cleanDisplayName(itemToModify.name)}`);
+      } else {
+        useUIStore.getState().setToastMessage(`PACK: ${cleanDisplayName(itemToModify.name)} (${cur - 1})`);
+      }
+      setTimeout(() => useUIStore.getState().setToastMessage(null), 2000);
+    }
   };
 
   return (
@@ -51,13 +72,12 @@ export default function StickerDetailClient({
       >
         <div className="relative w-full aspect-square border border-[#1A1A1A] bg-[#0D0D0D] flex items-center justify-center overflow-hidden">
           {/* Subtle noise */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:16px_16px]" />
           <Image 
             src={sticker.image_url} 
             alt={cleanDisplayName(sticker.name)} 
             fill
             priority
-            unoptimized
             sizes="(max-width: 768px) 100vw, 50vw"
             className="p-8 md:p-16 object-contain z-10" 
           />
@@ -123,29 +143,73 @@ export default function StickerDetailClient({
           </div>
         </div>
 
-        {/* Enhanced Decorative Add to Pack Button */}
+        {/* Enhanced Decorative Add to Pack Button & Reactive Quantity Controls */}
         <div className="pt-2 flex flex-col gap-4">
           {sticker.stock > 0 && sticker.stock <= 5 && (
             <div className="text-[#FF4E50] font-pixel text-[10px] tracking-[0.2em] text-center animate-pulse">
               /// WARNING: ONLY {sticker.stock} LEFT IN STOCK
             </div>
           )}
-          <button 
-            onClick={() => handleAdd(sticker)}
-            disabled={isOutOfStock}
-            className="relative group w-full bg-[#b4ff39] hover:bg-white text-black font-display font-black tracking-[0.2em] text-sm md:text-base px-8 py-4 text-center transition-all duration-300 uppercase disabled:opacity-50 disabled:hover:bg-white cursor-pointer shadow-[0_0_25px_rgba(180,255,57,0.35)] hover:shadow-[0_0_35px_rgba(255,255,255,0.6)] rounded-sm overflow-hidden"
-          >
-            {/* Cyberpunk corner notches */}
-            <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-black z-10" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-black z-10" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-black z-10" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-black z-10" />
-            
-            <span className="relative z-10 flex items-center justify-center gap-2 group-hover:scale-105 transition-transform">
-              <span>{isOutOfStock ? "SOLD OUT" : "CLICK TO ADD TO PACK"}</span>
-              {!isOutOfStock && <span className="text-xl leading-none font-sans font-bold">+</span>}
-            </span>
-          </button>
+          
+          {currentQty === 0 ? (
+            <button 
+              onClick={() => handleIncrement(sticker)}
+              disabled={isOutOfStock}
+              className="relative group w-full bg-[#b4ff39] hover:bg-white text-black font-display font-black tracking-[0.2em] text-sm md:text-base px-8 py-4 text-center transition-all duration-300 uppercase disabled:opacity-50 disabled:hover:bg-white cursor-pointer shadow-[0_0_25px_rgba(180,255,57,0.35)] hover:shadow-[0_0_35px_rgba(255,255,255,0.6)] rounded-sm overflow-hidden"
+            >
+              {/* Cyberpunk corner notches */}
+              <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-black z-10" />
+              <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-black z-10" />
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-black z-10" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-black z-10" />
+              
+              <span className="relative z-10 flex items-center justify-center gap-2 group-hover:scale-105 transition-transform">
+                <span>{isOutOfStock ? "SOLD OUT" : "CLICK TO ADD TO PACK"}</span>
+                {!isOutOfStock && <span className="text-xl leading-none font-sans font-bold">+</span>}
+              </span>
+            </button>
+          ) : (
+            <div className="relative w-full bg-[#141414] border-2 border-[#b4ff39] text-white flex items-center justify-between p-1 rounded-sm shadow-[0_0_30px_rgba(180,255,57,0.3)]">
+              {/* Corner brackets */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-[#b4ff39] pointer-events-none" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-[#b4ff39] pointer-events-none" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-[#b4ff39] pointer-events-none" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-[#b4ff39] pointer-events-none" />
+
+              {/* Left Minus Button */}
+              <button
+                onClick={() => handleDecrement(sticker)}
+                className="w-14 h-12 bg-white/10 hover:bg-[#FF4E50] text-white hover:text-black font-display font-black text-2xl flex items-center justify-center rounded transition-all cursor-pointer shrink-0"
+                title="Decrease quantity"
+              >
+                −
+              </button>
+
+              {/* Center Quantity Display */}
+              <div className="flex flex-col items-center justify-center px-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display font-black text-2xl md:text-3xl text-[#b4ff39] tracking-wider leading-none">
+                    {currentQty}
+                  </span>
+                  <span className="text-xs md:text-sm font-mono font-bold text-white tracking-widest uppercase">
+                    IN PACK
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono tracking-widest text-white/50 uppercase mt-0.5">
+                  TOTAL ₹{currentQty * priceInRs}
+                </span>
+              </div>
+
+              {/* Right Plus Button */}
+              <button
+                onClick={() => handleIncrement(sticker)}
+                className="w-14 h-12 bg-[#b4ff39] hover:bg-white text-black font-display font-black text-2xl flex items-center justify-center rounded transition-all cursor-pointer shrink-0 shadow-[0_0_15px_rgba(180,255,57,0.4)]"
+                title="Increase quantity"
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Bundle & Save Recommendation */}
@@ -221,15 +285,52 @@ export default function StickerDetailClient({
                 </Link>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
                   <span className="font-display font-bold text-sm text-white">₹{rec.price / 100}</span>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleAdd(rec);
-                    }}
-                    className="bg-white/10 hover:bg-[#b4ff39] hover:text-black text-white text-[9px] font-mono font-bold px-2.5 py-1.5 rounded transition-colors uppercase tracking-wider"
-                  >
-                    + ADD
-                  </button>
+                  {(() => {
+                    const recItem = items.find(i => i.sticker.id === rec.id);
+                    const recQty = recItem ? recItem.quantity : 0;
+                    
+                    if (recQty === 0) {
+                      return (
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleIncrement(rec);
+                          }}
+                          className="bg-white/10 hover:bg-[#b4ff39] hover:text-black text-white text-[9px] font-mono font-bold px-2.5 py-1.5 rounded transition-colors uppercase tracking-wider cursor-pointer"
+                        >
+                          + ADD
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div className="inline-flex items-center bg-[#1a1a1a] border border-[#b4ff39] rounded overflow-hidden shadow-[0_0_10px_rgba(180,255,57,0.25)]">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDecrement(rec);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center text-white/80 hover:bg-[#FF4E50] hover:text-black font-bold text-sm transition-colors cursor-pointer"
+                          title="Decrease"
+                        >
+                          −
+                        </button>
+                        <span className="font-mono font-extrabold text-xs text-[#b4ff39] px-2 select-none">
+                          {recQty}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleIncrement(rec);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center bg-[#b4ff39] text-black hover:bg-white font-bold text-sm transition-colors cursor-pointer"
+                          title="Increase"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

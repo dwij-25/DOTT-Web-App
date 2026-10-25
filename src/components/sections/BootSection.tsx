@@ -322,16 +322,6 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
         <span className="text-[10px] tracking-widest">DOTT — BOOT</span>
         <div className="border border-white/30 w-4 h-4 flex items-center justify-center text-[10px]">✕</div>
       </div>
-      
-      {sticker.tags && sticker.tags.length > 0 && (
-        <div className="absolute top-10 right-2 flex flex-col gap-1 z-30 items-end pointer-events-none">
-          {sticker.tags.map((tag: string) => (
-            <span key={tag} className="text-[8px] bg-black/50 backdrop-blur-sm border border-white/20 text-white/70 px-1 py-0.5 tracking-widest uppercase">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="flex-1 flex relative">
         {/* Measurement Ruler (left) */}
@@ -416,12 +406,10 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
         </div>
         
         <div className="flex justify-between items-end">
-          <div className="flex gap-1 flex-wrap w-2/3">
-            {sticker.tags.filter(t => t.toUpperCase() === "BOOT").map(tag => (
-              <span key={tag} className="border border-white/30 px-1 text-[8px] tracking-wider text-white/70 uppercase">
-                {tag}
-              </span>
-            ))}
+          <div className="flex items-center gap-1.5 text-white/50 text-[9px] font-mono tracking-widest uppercase">
+            <span>OFFICIAL EDITION</span>
+            <span>·</span>
+            <span>5 CM</span>
           </div>
           
           <div className="text-right">

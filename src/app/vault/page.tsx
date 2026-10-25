@@ -3,8 +3,7 @@ import StandardVault from "@/components/sections/StandardVault";
 import Link from "next/link";
 import PageLoader from "@/components/ui/PageLoader";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function FullVaultPage() {
   const standardStickers = await prisma.sticker.findMany({
