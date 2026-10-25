@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import AiModelStudio from "./AiModelStudio";
 
 export default function AdminTabs({ stats, orders, stickers, users, settings = {} }: any) {
   const router = useRouter();
@@ -209,7 +210,7 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
     <div className="flex flex-col lg:flex-row gap-8 min-h-[600px]">
       {/* Sidebar Navigation */}
       <div className="w-full lg:w-48 flex flex-col gap-2">
-        {["DASHBOARD", "ANALYTICS", "STICKERS", "ORDERS", "USERS", "SETTINGS"].map(tab => (
+        {["DASHBOARD", "ANALYTICS", "STICKERS", "AI MODEL", "ORDERS", "USERS", "SETTINGS"].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -284,11 +285,10 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
                 <h2 className="text-lg font-bold tracking-widest">250 STANDARD SLOTS</h2>
                 <div className="flex items-center gap-3">
                   <button 
-                    disabled={isAutoTagging}
-                    onClick={handleAutoTag}
-                    className="border border-[#b4ff39] text-[#b4ff39] hover:bg-[#b4ff39] hover:text-black text-xs font-bold px-4 py-2 transition-colors disabled:opacity-50 cursor-pointer"
+                    onClick={() => setActiveTab("AI MODEL")}
+                    className="border border-[#b4ff39] text-[#b4ff39] hover:bg-[#b4ff39] hover:text-black text-xs font-bold px-4 py-2 transition-colors cursor-pointer"
                   >
-                    {isAutoTagging ? "CATEGORIZING..." : "🤖 AI AUTO-TAG & RENAME"}
+                    🤖 OPEN AI MODEL STUDIO
                   </button>
                   <button 
                     className="bg-white text-black text-xs font-bold px-4 py-2 hover:bg-gray-200 cursor-pointer"
@@ -325,6 +325,16 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
                   </div>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === "AI MODEL" && (
+            <motion.div key="aimodel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <AiModelStudio 
+                stickers={stickers} 
+                settings={settings} 
+                showToast={showToast} 
+              />
             </motion.div>
           )}
 
