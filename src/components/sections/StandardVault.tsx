@@ -454,182 +454,209 @@ function Y2KSliderButton({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
-  const [isAdded, setIsAdded] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Constraints for drag
+  const items = useCartStore(state => state.items);
+  const addItem = useCartStore(state => state.addItem);
+  const updateQuantity = useCartStore(state => state.updateQuantity);
+
+  const cartItem = items.find(i => i.sticker.id === slot.id);
+  const qty = cartItem ? cartItem.quantity : 0;
+
   const [dragWidth, setDragWidth] = useState(0);
+  const knobSize = 36;
 
   useEffect(() => {
     if (containerRef.current) {
-      setDragWidth(containerRef.current.offsetWidth - 42);
+      setDragWidth(Math.max(10, containerRef.current.offsetWidth - knobSize - 8));
     }
   }, [containerRef.current?.offsetWidth]);
 
-  // Map drag position to width of background block
-  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [42, (dragWidth || 1) + 42]);
+  // Map drag position to width of fill bar
+  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [knobSize + 8, (dragWidth || 1) + knobSize + 8]);
+
+  const triggerAdd = () => {
+    if (isSliding || isOutOfStock) return;
+    setIsSliding(true);
+    setJustAdded(true);
+    
+    // Animate knob to full width
+    animate(dragX, dragWidth, { type: "tween", duration: 0.28, ease: "easeOut" });
+
+    // Add item to cart
+    addItem(slot as Sticker);
+    useUIStore.getState().setToastMessage(`ADDED ${cleanDisplayName(slot.name)} TO PACK`);
+    setTimeout(() => useUIStore.getState().setToastMessage(null), 2000);
+
+    // After brief celebration showing "ADDED", transition to - / + controls
+    setTimeout(() => {
+      setJustAdded(false);
+      setIsSliding(false);
+      dragX.set(0);
+    }, 700);
+  };
 
   const handleDragEnd = () => {
     const currentX = dragX.get();
     if (currentX >= dragWidth - 15) {
       triggerAdd();
     } else {
-      animate(dragX, 0, { type: "spring", stiffness: 300, damping: 30 });
+      animate(dragX, 0, { type: "spring", stiffness: 350, damping: 28 });
     }
   };
 
-  const triggerAdd = () => {
-    setIsSliding(true);
-    setIsAdded(false);
-    onAdd();
-    
-    // Animate background to full width
-    animate(dragX, dragWidth, { type: "tween", duration: 0.25 });
-
-    setTimeout(() => {
-      setIsAdded(true);
-      
-      setTimeout(() => {
-        setIsAdded(false);
-        setIsSliding(false);
-        animate(dragX, 0, { type: "spring", stiffness: 300, damping: 30 });
-      }, 1800);
-    }, 1000);
-  };
-
-  // Desktop click handler
-  const handleDesktopClick = (e: React.MouseEvent) => {
-    if (isOutOfStock || isAdded) return;
-    
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    if (!isMobile) {
-      triggerAdd();
+  const handleMinus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (qty > 0) {
+      updateQuantity(slot.id, qty - 1);
+      if (qty - 1 === 0) {
+        useUIStore.getState().setToastMessage(`REMOVED ${cleanDisplayName(slot.name)}`);
+      }
+      setTimeout(() => useUIStore.getState().setToastMessage(null), 2000);
     }
   };
 
-  const glowColors = {
-    "#E83C3C": "rgba(232, 60, 60, 0.9)",
-    "#A855F7": "rgba(168, 85, 247, 0.9)",
-    "#b4ff39": "rgba(180, 255, 57, 0.9)",
+  const handlePlus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addItem(slot as Sticker);
+    useUIStore.getState().setToastMessage(`PACK: ${cleanDisplayName(slot.name)} (${qty + 1})`);
+    setTimeout(() => useUIStore.getState().setToastMessage(null), 2000);
   };
-  const activeGlow = glowColors[themeColor as keyof typeof glowColors] || "rgba(255, 255, 255, 0.8)";
 
+  // If already in pack (and not celebrating justAdded), show - / + controls
+  if (qty > 0 && !justAdded) {
+    return (
+      <div className="w-full px-2 pb-2 pt-0.5 select-none" onClick={e => e.stopPropagation()}>
+        <div 
+          className="relative w-full h-[40px] rounded-full bg-[#111113] border-2 flex items-center justify-between px-1.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.4)] transition-all"
+          style={{ borderColor: themeColor }}
+        >
+          {/* Subtle LED dot-matrix background inside quantity bar */}
+          <div 
+            className="absolute inset-0 rounded-full opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)",
+              backgroundSize: "4px 4px"
+            }}
+          />
+
+          {/* Minus Button */}
+          <button
+            onClick={handleMinus}
+            className="relative z-10 w-7 h-7 rounded-full bg-white/10 hover:bg-[#FF4E50] text-white flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.5)] active:scale-90"
+            title="Decrease quantity"
+          >
+            −
+          </button>
+
+          {/* Middle: Qty in Pack & Price */}
+          <div className="relative z-10 flex flex-col items-center justify-center leading-none px-2 select-none">
+            <span className="font-mono font-black text-xs md:text-[13px] text-white tracking-widest flex items-center gap-1.5">
+              <span>{qty}</span>
+              <span className="text-[10px] text-white/70">IN PACK</span>
+            </span>
+            <span className="text-[8.5px] font-mono tracking-wider mt-0.5" style={{ color: themeColor }}>
+              ₹{(qty * ((slot.price || 1900) / 100))}
+            </span>
+          </div>
+
+          {/* Plus Button */}
+          <button
+            onClick={handlePlus}
+            className="relative z-10 w-7 h-7 rounded-full text-black flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-[0_0_10px_rgba(0,0,0,0.4)] hover:brightness-110 active:scale-90"
+            style={{ backgroundColor: themeColor }}
+            title="Increase quantity"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // SWIPE TO ADD Slidebar (authentic LED Dot-Matrix slider inspired by video)
   return (
-    <div 
-      ref={containerRef} 
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full h-[52px] bg-gradient-to-b from-[#18181b]/95 via-[#0e0e11]/95 to-[#070709] backdrop-blur-xl overflow-hidden select-none border-t border-white/20 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.22),inset_0_-1px_1px_0_rgba(0,0,0,0.6),0_4px_14px_rgba(0,0,0,0.5)] group transition-all"
-    >
-      {/* Premium Glass Glare & Specular Reflection Sheen */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity duration-500 z-11" />
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none z-15" />
-      {/* Decorative cyber corner accents */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/35 z-16 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/35 z-16 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/35 z-16 pointer-events-none" />
-
-      {/* Background slide fill bar */}
-      <motion.div 
-        className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none shadow-[0_0_20px_rgba(0,0,0,0.6)]"
-        style={{ 
-          width: isSliding ? "100%" : bgWidth, 
-          backgroundColor: themeColor,
-          transition: isSliding ? "width 0.2s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
+    <div className="w-full px-2 pb-2 pt-0.5 select-none" onClick={e => e.stopPropagation()}>
+      <div 
+        ref={containerRef}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="relative w-full h-[40px] rounded-full bg-[#121214] border border-white/20 overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_2px_6px_rgba(0,0,0,0.3)] group cursor-pointer"
+        onClick={() => {
+          if (!isOutOfStock && !isSliding) triggerAdd();
         }}
       >
-        {/* Glass specular overlay on fill */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-black/25 pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-white/50 pointer-events-none" />
-
+        {/* Authentic LED Dot-Matrix Background Texture (from reference video) */}
         <div 
-          className="relative z-10 flex gap-2 items-center justify-center w-full px-4 text-black font-extrabold"
-          style={{ opacity: isSliding || isAdded ? 1 : 0, transition: "opacity 0.2s" }}
-        >
-          {isAdded ? (
-            <span className="font-mono text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-black flex items-center gap-1.5 whitespace-nowrap drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
-              <span className="text-sm">✓</span> ADDED TO PACK
-            </span>
-          ) : (
-            <div className="flex gap-2 text-black items-center">
-              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:0ms]" />
-              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:200ms]" />
-              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:400ms]" />
-              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:600ms]" />
-              <DotChevron className="animate-[pulseChevron_1.5s_infinite] [animation-delay:800ms]" />
-            </div>
-          )}
-        </div>
-      </motion.div>
+          className="absolute inset-0 rounded-full opacity-35 pointer-events-none"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1px)",
+            backgroundSize: "4px 4px"
+          }}
+        />
 
-      {/* Decorative Tactile Slider Thumb - Mobile */}
-      {!isOutOfStock && !isAdded && (
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: 0, right: dragWidth }}
-          dragElastic={0.05}
-          dragMomentum={false}
-          onDragEnd={handleDragEnd}
-          style={{ x: dragX }}
-          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing md:hidden"
+        {/* Dynamic sliding fill bar in theme color */}
+        <motion.div 
+          className="absolute left-0 top-0 bottom-0 rounded-full z-10 overflow-hidden pointer-events-none"
+          style={{ 
+            width: isSliding ? "100%" : bgWidth, 
+            backgroundColor: themeColor,
+            transition: isSliding ? "width 0.28s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
+          }}
         >
           <div 
-            className="w-full h-full flex flex-col items-center justify-center gap-1 shadow-[2px_0_12px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.5),inset_0_-1px_1px_rgba(0,0,0,0.4)] border-r border-white/25 relative overflow-hidden" 
-            style={{ backgroundColor: themeColor }}
+            className="absolute inset-0 opacity-25"
+            style={{
+              backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.6) 1px, transparent 1px)",
+              backgroundSize: "4px 4px"
+            }}
+          />
+          <div 
+            className="absolute inset-0 flex items-center justify-center pr-8 font-mono text-xs md:text-sm font-black text-black tracking-[0.25em] uppercase"
+            style={{ opacity: isSliding || justAdded ? 1 : 0, transition: "opacity 0.15s" }}
           >
-            {/* Gloss reflection inside thumb */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/30 pointer-events-none" />
-            <div className="relative z-10 w-3.5 h-[1.5px] bg-black/70 rounded-full" />
-            <DotChevron className="relative z-10 text-black scale-110 drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)]" />
-            <div className="relative z-10 w-3.5 h-[1.5px] bg-black/70 rounded-full" />
+            ✓ ADDED
           </div>
         </motion.div>
-      )}
 
-      {/* Decorative Tactile Thumb - Desktop */}
-      {!isOutOfStock && !isAdded && (
+        {/* Dot Matrix Track Text ("SWIPE TO ADD") */}
         <div 
-          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 hidden md:flex flex-col items-center justify-center gap-1 shadow-[2px_0_12px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.5),inset_0_-1px_1px_rgba(0,0,0,0.4)] border-r border-white/25 group-hover:brightness-110 transition-all relative overflow-hidden" 
-          style={{ backgroundColor: themeColor }}
+          className="absolute inset-0 flex items-center justify-center pl-7 pr-3 pointer-events-none z-10"
+          style={{ opacity: isSliding || justAdded ? 0 : 1, transition: "opacity 0.2s" }}
         >
-          {/* Gloss reflection inside thumb */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/30 pointer-events-none" />
-          <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
-          <DotChevron className="text-black scale-110 group-hover:translate-x-0.5 transition-transform" />
-          <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
+          <div className="flex items-center gap-1.5 text-white/90 font-mono text-[9px] md:text-[10px] font-black tracking-[0.22em] uppercase">
+            <span>SWIPE TO ADD</span>
+            <span className="text-[10px] text-white/50 animate-pulse tracking-tight">»»</span>
+          </div>
         </div>
-      )}
 
-      {/* Click / Swipe Label */}
-      <button 
-        onClick={handleDesktopClick}
-        className="absolute inset-0 w-full h-full bg-transparent flex items-center z-15 pointer-events-auto cursor-pointer"
-        disabled={isOutOfStock || isAdded}
-      >
-        <div className="w-[42px] shrink-0 h-full" />
-        <div className="flex-1 flex items-center justify-center px-2">
-          <span 
-            className="font-mono text-[9px] md:text-[10px] font-black tracking-[0.2em] uppercase text-white transition-all duration-300 flex items-center gap-2 whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-            style={{ 
-              opacity: isSliding || isAdded ? 0 : 1,
-              textShadow: isHovered ? `0 0 12px ${activeGlow}` : "none",
-              color: isHovered ? "#FFFFFF" : "rgba(255, 255, 255, 0.95)"
-            }}
+        {/* Circular Slider Knob with 4 DOTT Logo Dots (Draggable on mobile/desktop) */}
+        {!isOutOfStock && !justAdded && (
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: dragWidth }}
+            dragElastic={0.06}
+            dragMomentum={false}
+            onDragEnd={handleDragEnd}
+            style={{ x: dragX }}
+            className="absolute left-[3px] top-[3px] bottom-[3px] w-[34px] h-[34px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing"
           >
-            {/* Mobile label */}
-            <span className="md:hidden flex items-center gap-1.5 text-white">
-              <span>SWIPE TO ADD</span>
-              <span className="text-[11px] animate-pulse">»»</span>
-            </span>
-            {/* Desktop label */}
-            <span className="hidden md:flex items-center gap-2 group-hover:text-white">
-              <span className="tracking-[0.22em]">CLICK TO ADD</span>
-              <span className="text-xs transition-transform group-hover:translate-x-1 font-bold" style={{ color: themeColor }}>+</span>
-            </span>
-          </span>
-        </div>
-      </button>
+            <div 
+              className="w-full h-full rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-white/30"
+              style={{ backgroundColor: themeColor }}
+            >
+              <div className="grid grid-cols-2 gap-[2.5px] items-center justify-center">
+                <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
+                <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
+                <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
+                <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }
