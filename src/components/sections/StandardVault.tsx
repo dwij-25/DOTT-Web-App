@@ -558,17 +558,17 @@ function Y2KSliderButton({
             −
           </button>
 
-          {/* Middle: Qty in Pack & Price - Cleanly centered, larger readable font, zero overlap */}
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center leading-none px-1 select-none overflow-hidden">
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono font-bold text-sm md:text-base text-white">
+          {/* Middle: Qty in Pack & Price - Cleanly centered, zero overlap */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center select-none overflow-hidden py-0.5">
+            <div className="flex items-center gap-1 leading-none">
+              <span className="font-mono font-bold text-xs md:text-sm text-white">
                 {qty}
               </span>
-              <span className="text-[8.5px] md:text-[9.5px] font-mono font-semibold text-white/70 tracking-wider uppercase">
+              <span className="text-[7.5px] md:text-[8px] font-mono font-semibold text-white/60 tracking-wider uppercase">
                 IN PACK
               </span>
             </div>
-            <span className="text-[8.5px] md:text-[9.5px] font-mono font-semibold mt-0.5 tracking-tight" style={{ color: themeColor }}>
+            <span className="text-[8px] md:text-[9px] font-mono font-bold tracking-tight leading-none mt-1" style={{ color: themeColor }}>
               ₹{(qty * ((slot.price || 1900) / 100))}
             </span>
           </div>
@@ -625,27 +625,27 @@ function Y2KSliderButton({
               backgroundSize: "4px 4px"
             }}
           />
-          {/* ADDED text - 100% dead centered across the pill track with increased font size */}
+          {/* ADDED text - 100% dead centered across the pill track */}
           <div 
-            className="absolute inset-0 flex items-center justify-center font-mono font-bold text-xs md:text-sm text-black tracking-[0.22em] uppercase"
+            className="absolute inset-0 flex items-center justify-center font-sans font-extrabold text-xs md:text-sm text-black tracking-[0.2em] uppercase"
             style={{ opacity: isSliding || justAdded ? 1 : 0, transition: "opacity 0.15s" }}
           >
             ADDED
           </div>
         </motion.div>
 
-        {/* Track Text: SWIPE TO ADD on Mobile, CLICK TO ADD on Desktop - perfectly centered & readable with increased font size */}
+        {/* Track Text: SWIPE TO ADD on Mobile, CLICK TO ADD on Desktop - centered with guaranteed clearance from knob */}
         <div 
-          className="absolute inset-y-0 left-[34px] md:left-[40px] right-[8px] md:right-[12px] flex items-center justify-center pointer-events-none z-10"
+          className="absolute inset-y-0 left-[38px] md:left-[44px] right-[8px] md:right-[12px] flex items-center justify-center pointer-events-none z-10"
           style={{ opacity: isSliding || justAdded ? 0 : 1, transition: "opacity 0.2s" }}
         >
-          <div className="font-mono font-semibold text-[10px] md:text-[11.5px] tracking-[0.14em] uppercase text-white/95 whitespace-nowrap">
+          <div className="font-sans font-bold text-[9px] md:text-[10.5px] tracking-[0.14em] uppercase text-white/95 whitespace-nowrap">
             <span className="md:hidden">SWIPE TO ADD</span>
             <span className="hidden md:inline">CLICK TO ADD</span>
           </div>
         </div>
 
-        {/* Circular Slider Knob with 4 DOTT Logo Dots - perfectly vertically & horizontally centered */}
+        {/* Circular Slider Knob with 4 DOTT Logo Dots - perfectly centered, dots 100% visible */}
         {!isOutOfStock && !justAdded && (
           <motion.div
             drag="x"
@@ -661,10 +661,10 @@ function Y2KSliderButton({
               style={{ backgroundColor: themeColor }}
             >
               <div className="grid grid-cols-2 gap-[2px] items-center justify-center">
-                <span className="w-1.2 h-1.2 md:w-1.5 md:h-1.5 bg-black rounded-[0.5px]" />
-                <span className="w-1.2 h-1.2 md:w-1.5 md:h-1.5 bg-black rounded-[0.5px]" />
-                <span className="w-1.2 h-1.2 md:w-1.5 md:h-1.5 bg-black rounded-[0.5px]" />
-                <span className="w-1.2 h-1.2 md:w-1.5 md:h-1.5 bg-black rounded-[0.5px]" />
+                <span className="w-[5px] h-[5px] bg-black rounded-[0.5px]" />
+                <span className="w-[5px] h-[5px] bg-black rounded-[0.5px]" />
+                <span className="w-[5px] h-[5px] bg-black rounded-[0.5px]" />
+                <span className="w-[5px] h-[5px] bg-black rounded-[0.5px]" />
               </div>
             </div>
           </motion.div>
