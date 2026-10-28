@@ -520,28 +520,35 @@ function Y2KSliderButton({
       ref={containerRef} 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full h-[52px] bg-[#080808] overflow-hidden select-none border-t border-black/20 group transition-all"
+      className="relative w-full h-[52px] bg-gradient-to-b from-[#18181b]/95 via-[#0e0e11]/95 to-[#070709] backdrop-blur-xl overflow-hidden select-none border-t border-white/20 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.22),inset_0_-1px_1px_0_rgba(0,0,0,0.6),0_4px_14px_rgba(0,0,0,0.5)] group transition-all"
     >
+      {/* Premium Glass Glare & Specular Reflection Sheen */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity duration-500 z-11" />
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none z-15" />
       {/* Decorative cyber corner accents */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20 z-12 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/20 z-12 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20 z-12 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/35 z-16 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/35 z-16 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/35 z-16 pointer-events-none" />
 
       {/* Background slide fill bar */}
       <motion.div 
-        className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+        className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none shadow-[0_0_20px_rgba(0,0,0,0.6)]"
         style={{ 
           width: isSliding ? "100%" : bgWidth, 
           backgroundColor: themeColor,
           transition: isSliding ? "width 0.2s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
         }}
       >
+        {/* Glass specular overlay on fill */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-black/25 pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-white/50 pointer-events-none" />
+
         <div 
-          className="flex gap-2 items-center justify-center w-full px-4 text-black font-extrabold"
+          className="relative z-10 flex gap-2 items-center justify-center w-full px-4 text-black font-extrabold"
           style={{ opacity: isSliding || isAdded ? 1 : 0, transition: "opacity 0.2s" }}
         >
           {isAdded ? (
-            <span className="font-mono text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-black flex items-center gap-1.5 whitespace-nowrap">
+            <span className="font-mono text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-black flex items-center gap-1.5 whitespace-nowrap drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
               <span className="text-sm">✓</span> ADDED TO PACK
             </span>
           ) : (
@@ -568,12 +575,14 @@ function Y2KSliderButton({
           className="absolute left-0 top-0 bottom-0 w-[42px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing md:hidden"
         >
           <div 
-            className="w-full h-full flex flex-col items-center justify-center gap-1 shadow-[2px_0_10px_rgba(0,0,0,0.6)] border-r border-black/20" 
+            className="w-full h-full flex flex-col items-center justify-center gap-1 shadow-[2px_0_12px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.5),inset_0_-1px_1px_rgba(0,0,0,0.4)] border-r border-white/25 relative overflow-hidden" 
             style={{ backgroundColor: themeColor }}
           >
-            <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
-            <DotChevron className="text-black scale-110" />
-            <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
+            {/* Gloss reflection inside thumb */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/30 pointer-events-none" />
+            <div className="relative z-10 w-3.5 h-[1.5px] bg-black/70 rounded-full" />
+            <DotChevron className="relative z-10 text-black scale-110 drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)]" />
+            <div className="relative z-10 w-3.5 h-[1.5px] bg-black/70 rounded-full" />
           </div>
         </motion.div>
       )}
@@ -581,9 +590,11 @@ function Y2KSliderButton({
       {/* Decorative Tactile Thumb - Desktop */}
       {!isOutOfStock && !isAdded && (
         <div 
-          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 hidden md:flex flex-col items-center justify-center gap-1 shadow-[2px_0_10px_rgba(0,0,0,0.6)] border-r border-black/20 group-hover:brightness-110 transition-all"
+          className="absolute left-0 top-0 bottom-0 w-[42px] z-20 hidden md:flex flex-col items-center justify-center gap-1 shadow-[2px_0_12px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.5),inset_0_-1px_1px_rgba(0,0,0,0.4)] border-r border-white/25 group-hover:brightness-110 transition-all relative overflow-hidden" 
           style={{ backgroundColor: themeColor }}
         >
+          {/* Gloss reflection inside thumb */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/30 pointer-events-none" />
           <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
           <DotChevron className="text-black scale-110 group-hover:translate-x-0.5 transition-transform" />
           <div className="w-3.5 h-[1.5px] bg-black/60 rounded-full" />
@@ -599,22 +610,22 @@ function Y2KSliderButton({
         <div className="w-[42px] shrink-0 h-full" />
         <div className="flex-1 flex items-center justify-center px-2">
           <span 
-            className="font-mono text-[9px] md:text-[10.5px] font-black tracking-[0.18em] uppercase text-white transition-all duration-300 flex items-center gap-2 whitespace-nowrap"
+            className="font-mono text-[9px] md:text-[10px] font-black tracking-[0.2em] uppercase text-white transition-all duration-300 flex items-center gap-2 whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
             style={{ 
               opacity: isSliding || isAdded ? 0 : 1,
-              textShadow: isHovered ? `0 0 10px ${activeGlow}` : "none",
-              color: isHovered ? "#FFFFFF" : "rgba(255, 255, 255, 0.9)"
+              textShadow: isHovered ? `0 0 12px ${activeGlow}` : "none",
+              color: isHovered ? "#FFFFFF" : "rgba(255, 255, 255, 0.95)"
             }}
           >
             {/* Mobile label */}
-            <span className="md:hidden flex items-center gap-1.5 text-white/95">
+            <span className="md:hidden flex items-center gap-1.5 text-white">
               <span>SWIPE TO ADD</span>
               <span className="text-[11px] animate-pulse">»»</span>
             </span>
             {/* Desktop label */}
             <span className="hidden md:flex items-center gap-2 group-hover:text-white">
               <span className="tracking-[0.22em]">CLICK TO ADD</span>
-              <span className="text-xs transition-transform group-hover:translate-x-1" style={{ color: themeColor }}>+</span>
+              <span className="text-xs transition-transform group-hover:translate-x-1 font-bold" style={{ color: themeColor }}>+</span>
             </span>
           </span>
         </div>
@@ -770,15 +781,15 @@ function VaultCard({ slot }: { slot: any }) {
           {/* Top metadata tags & Price */}
           <div className="px-3 pt-2 pb-1 flex items-center justify-between gap-2 relative z-10">
             <span 
-              className="text-black font-extrabold text-[10px] md:text-[11px] font-display uppercase tracking-tight truncate max-w-[145px]" 
+              className="text-black font-bold text-[8.5px] md:text-[9.5px] font-display uppercase tracking-wider truncate max-w-[140px]" 
               title={cleanDisplayName(slot.name)}
             >
               {cleanDisplayName(slot.name)}
             </span>
             
             {/* Price display with discounted original price */}
-            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
-              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+            <div className="flex items-baseline gap-1 font-sans text-[11px] md:text-xs shrink-0">
+              <span className="text-black/35 line-through text-[8.5px] md:text-[9px] font-medium">₹49</span>
               <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
             </div>
           </div>
@@ -929,15 +940,15 @@ function StampCard({ slot }: { slot: any }) {
           {/* Top metadata tags & Price */}
           <div className="px-3 pt-2 pb-1 flex items-center justify-between gap-2 relative z-10">
             <span 
-              className="text-black font-extrabold text-[10px] md:text-[11px] font-display uppercase tracking-tight truncate max-w-[145px]" 
+              className="text-black font-bold text-[8.5px] md:text-[9.5px] font-display uppercase tracking-wider truncate max-w-[140px]" 
               title={cleanDisplayName(slot.name)}
             >
               {cleanDisplayName(slot.name)}
             </span>
             
             {/* Price display with discounted original price */}
-            <div className="flex items-baseline gap-1 font-sans text-xs md:text-sm shrink-0">
-              <span className="text-black/35 line-through text-[9px] md:text-[10px] font-medium">₹49</span>
+            <div className="flex items-baseline gap-1 font-sans text-[11px] md:text-xs shrink-0">
+              <span className="text-black/35 line-through text-[8.5px] md:text-[9px] font-medium">₹49</span>
               <span className="text-black font-extrabold tracking-tight">₹{slot.price ? (slot.price / 100) : 19}</span>
             </div>
           </div>

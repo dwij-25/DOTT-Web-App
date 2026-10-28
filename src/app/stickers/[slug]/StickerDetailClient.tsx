@@ -162,6 +162,11 @@ export default function StickerDetailClient({
               <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-black z-10" />
               <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-black z-10" />
               <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-black z-10" />
+
+              {/* Premium Glass reflection highlight edge */}
+              <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none z-15" />
+              {/* Glass subtle glossy wash */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/10 to-transparent pointer-events-none z-10 opacity-70 group-hover:opacity-100 transition-opacity" />
               
               <span className="relative z-10 flex items-center justify-center gap-2 group-hover:scale-105 transition-transform">
                 <span>{isOutOfStock ? "SOLD OUT" : "CLICK TO ADD TO PACK"}</span>

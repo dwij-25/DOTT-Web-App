@@ -186,8 +186,8 @@ export default function BootSection({ stickers }: { stickers: Sticker[] }) {
             </div>
             
             {/* Conditional Display: Countdown when locked */}
-            <div className="w-full lg:w-64 mt-2">
-              {!isLive ? (
+            {!isLive && (
+              <div className="w-full lg:w-64 mt-2">
                 <div className="flex flex-col">
                    <div className="flex flex-col sm:flex-row justify-between sm:items-center text-[10px] tracking-widest mb-2 text-[#FF4E50] gap-1">
                      <span>SYSTEM LOCKED</span>
@@ -197,13 +197,8 @@ export default function BootSection({ stickers }: { stickers: Sticker[] }) {
                      T-{timeLeft}
                    </div>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs font-mono text-[#b4ff39]">
-                  <span className="w-2 h-2 rounded-full bg-[#b4ff39] animate-pulse" />
-                  <span className="tracking-widest uppercase text-[10px]">IN STOCK · IMMEDIATE DISPATCH</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -398,7 +393,7 @@ function BootCard({ sticker, index, isActive, isFlipped, onToggleFlip }: { stick
       <div className="h-24 border-t border-white/35 bg-black p-3 z-20 flex flex-col justify-between">
         <div className="flex justify-between items-start">
           <div className="flex-1 pr-2 overflow-hidden">
-            <h4 className="text-white font-bold text-xs md:text-sm tracking-wide uppercase truncate max-w-[220px] font-display" title={sticker.name}>
+            <h4 className="text-white font-bold text-[11px] md:text-xs tracking-wide uppercase truncate max-w-[220px] font-display" title={sticker.name}>
               {sticker.name}
             </h4>
           </div>
