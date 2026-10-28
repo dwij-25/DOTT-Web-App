@@ -466,16 +466,24 @@ function Y2KSliderButton({
   const qty = cartItem ? cartItem.quantity : 0;
 
   const [dragWidth, setDragWidth] = useState(0);
-  const knobSize = 36;
+  const knobSize = 30;
+  const knobPadding = 3;
 
   useEffect(() => {
-    if (containerRef.current) {
-      setDragWidth(Math.max(10, containerRef.current.offsetWidth - knobSize - 8));
-    }
-  }, [containerRef.current?.offsetWidth]);
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const w = containerRef.current.offsetWidth;
+        setDragWidth(Math.max(10, w - knobSize - knobPadding * 2));
+      }
+    };
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
 
-  // Map drag position to width of fill bar
-  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [knobSize + 8, (dragWidth || 1) + knobSize + 8]);
+  // Fill bar grows only when dragged/sliding - strictly 0 at rest so NO outer halo/circle appears
+  const bgWidth = useTransform(dragX, [0, dragWidth || 1], [0, (dragWidth || 1) + knobSize + knobPadding * 2]);
+  const fillOpacity = useTransform(dragX, [0, 4], [0, 1]);
 
   const triggerAdd = () => {
     if (isSliding || isOutOfStock) return;
@@ -500,7 +508,7 @@ function Y2KSliderButton({
 
   const handleDragEnd = () => {
     const currentX = dragX.get();
-    if (currentX >= dragWidth - 15) {
+    if (currentX >= dragWidth - 12) {
       triggerAdd();
     } else {
       animate(dragX, 0, { type: "spring", stiffness: 350, damping: 28 });
@@ -530,14 +538,14 @@ function Y2KSliderButton({
     return (
       <div className="w-full px-2 pb-2 pt-0.5 select-none" onClick={e => e.stopPropagation()}>
         <div 
-          className="relative w-full h-[40px] rounded-full bg-[#111113] border-2 flex items-center justify-between px-1.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.4)] transition-all"
+          className="relative w-full h-[36px] sm:h-[38px] rounded-full bg-[#111113] border-2 flex items-center justify-between px-1 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.5)] transition-all"
           style={{ borderColor: themeColor }}
         >
           {/* Subtle LED dot-matrix background inside quantity bar */}
           <div 
             className="absolute inset-0 rounded-full opacity-20 pointer-events-none"
             style={{
-              backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)",
+              backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1px)",
               backgroundSize: "4px 4px"
             }}
           />
@@ -545,19 +553,23 @@ function Y2KSliderButton({
           {/* Minus Button */}
           <button
             onClick={handleMinus}
-            className="relative z-10 w-7 h-7 rounded-full bg-white/10 hover:bg-[#FF4E50] text-white flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.5)] active:scale-90"
+            className="relative z-10 w-7 h-7 rounded-full bg-white/10 hover:bg-[#FF4E50] active:scale-90 text-white flex items-center justify-center text-sm font-bold transition-all cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.5)] shrink-0"
             title="Decrease quantity"
           >
             −
           </button>
 
-          {/* Middle: Qty in Pack & Price */}
-          <div className="relative z-10 flex flex-col items-center justify-center leading-none px-2 select-none">
-            <span className="font-mono font-black text-xs md:text-[13px] text-white tracking-widest flex items-center gap-1.5">
-              <span>{qty}</span>
-              <span className="text-[10px] text-white/70">IN PACK</span>
-            </span>
-            <span className="text-[8.5px] font-mono tracking-wider mt-0.5" style={{ color: themeColor }}>
+          {/* Middle: Qty in Pack & Price - Cleanly centered, bold, zero overlap */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center leading-none px-1 select-none overflow-hidden">
+            <div className="flex items-center gap-1 font-pixel">
+              <span className="font-bold text-xs sm:text-sm text-white">
+                {qty}
+              </span>
+              <span className="text-[7.5px] sm:text-[8.5px] text-white/70 tracking-wider uppercase">
+                IN PACK
+              </span>
+            </div>
+            <span className="text-[7.5px] sm:text-[8.5px] font-mono font-bold mt-0.5 tracking-tight" style={{ color: themeColor }}>
               ₹{(qty * ((slot.price || 1900) / 100))}
             </span>
           </div>
@@ -565,7 +577,7 @@ function Y2KSliderButton({
           {/* Plus Button */}
           <button
             onClick={handlePlus}
-            className="relative z-10 w-7 h-7 rounded-full text-black flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-[0_0_10px_rgba(0,0,0,0.4)] hover:brightness-110 active:scale-90"
+            className="relative z-10 w-7 h-7 rounded-full text-black flex items-center justify-center text-sm font-bold transition-all cursor-pointer shadow-[0_0_8px_rgba(0,0,0,0.4)] hover:brightness-110 active:scale-90 shrink-0"
             style={{ backgroundColor: themeColor }}
             title="Increase quantity"
           >
@@ -583,7 +595,7 @@ function Y2KSliderButton({
         ref={containerRef}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="relative w-full h-[40px] rounded-full bg-[#121214] border border-white/20 overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_2px_6px_rgba(0,0,0,0.3)] group cursor-pointer"
+        className="relative w-full h-[36px] sm:h-[38px] rounded-full bg-[#121214] border border-white/20 overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_2px_6px_rgba(0,0,0,0.3)] group cursor-pointer"
         onClick={() => {
           if (!isOutOfStock && !isSliding) triggerAdd();
         }}
@@ -592,62 +604,63 @@ function Y2KSliderButton({
         <div 
           className="absolute inset-0 rounded-full opacity-35 pointer-events-none"
           style={{
-            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1px)",
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.35) 1.2px, transparent 1.2px)",
             backgroundSize: "4px 4px"
           }}
         />
 
-        {/* Dynamic sliding fill bar in theme color */}
+        {/* Dynamic sliding fill bar in theme color - 0 opacity at rest so no halo appears */}
         <motion.div 
           className="absolute left-0 top-0 bottom-0 rounded-full z-10 overflow-hidden pointer-events-none"
           style={{ 
             width: isSliding ? "100%" : bgWidth, 
+            opacity: isSliding ? 1 : fillOpacity,
             backgroundColor: themeColor,
             transition: isSliding ? "width 0.28s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
           }}
         >
           <div 
-            className="absolute inset-0 opacity-25"
+            className="absolute inset-0 opacity-20"
             style={{
-              backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.6) 1px, transparent 1px)",
+              backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.5) 1px, transparent 1px)",
               backgroundSize: "4px 4px"
             }}
           />
           <div 
-            className="absolute inset-0 flex items-center justify-center pr-8 font-mono text-xs md:text-sm font-black text-black tracking-[0.25em] uppercase"
+            className="absolute inset-y-0 left-0 right-[32px] flex items-center justify-center font-pixel font-bold text-[9px] sm:text-[10px] text-black tracking-[0.2em] uppercase"
             style={{ opacity: isSliding || justAdded ? 1 : 0, transition: "opacity 0.15s" }}
           >
             ✓ ADDED
           </div>
         </motion.div>
 
-        {/* Dot Matrix Track Text ("SWIPE TO ADD") */}
+        {/* Dot Matrix Track Text ("SWIPE TO ADD") - Centered in readable zone, bold pixel font */}
         <div 
-          className="absolute inset-0 flex items-center justify-center pl-7 pr-3 pointer-events-none z-10"
+          className="absolute inset-y-0 left-[34px] right-[6px] flex items-center justify-center pointer-events-none z-10"
           style={{ opacity: isSliding || justAdded ? 0 : 1, transition: "opacity 0.2s" }}
         >
-          <div className="flex items-center gap-1.5 text-white/90 font-mono text-[9px] md:text-[10px] font-black tracking-[0.22em] uppercase">
+          <div className="flex items-center justify-center gap-1.5 text-white/95 font-pixel font-bold text-[8.5px] sm:text-[9.5px] md:text-[10px] tracking-[0.16em] uppercase whitespace-nowrap">
             <span>SWIPE TO ADD</span>
-            <span className="text-[10px] text-white/50 animate-pulse tracking-tight">»»</span>
+            <span className="text-[9.5px] text-white/50 animate-pulse tracking-normal">»»</span>
           </div>
         </div>
 
-        {/* Circular Slider Knob with 4 DOTT Logo Dots (Draggable on mobile/desktop) */}
+        {/* Circular Slider Knob with 4 DOTT Logo Dots (Single crisp disc, no outer halo) */}
         {!isOutOfStock && !justAdded && (
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: dragWidth }}
-            dragElastic={0.06}
+            dragElastic={0.05}
             dragMomentum={false}
             onDragEnd={handleDragEnd}
             style={{ x: dragX }}
-            className="absolute left-[3px] top-[3px] bottom-[3px] w-[34px] h-[34px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing"
+            className="absolute left-[3px] top-[3px] bottom-[3px] w-[30px] h-[30px] sm:w-[32px] sm:h-[32px] z-20 flex items-center justify-center cursor-grab active:cursor-grabbing"
           >
             <div 
-              className="w-full h-full rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-white/30"
+              className="w-full h-full rounded-full flex items-center justify-center shadow-[0_2px_6px_rgba(0,0,0,0.7)]"
               style={{ backgroundColor: themeColor }}
             >
-              <div className="grid grid-cols-2 gap-[2.5px] items-center justify-center">
+              <div className="grid grid-cols-2 gap-[2px] items-center justify-center">
                 <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
                 <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
                 <span className="w-1.5 h-1.5 bg-black rounded-[0.5px]" />
