@@ -558,17 +558,17 @@ function Y2KSliderButton({
             −
           </button>
 
-          {/* Middle: Qty in Pack & Price - Cleanly centered, readable font, zero overlap */}
+          {/* Middle: Qty in Pack & Price - Cleanly centered, larger readable font, zero overlap */}
           <div className="relative z-10 flex-1 flex flex-col items-center justify-center leading-none px-1 select-none overflow-hidden">
             <div className="flex items-center gap-1.5">
-              <span className="font-mono font-bold text-xs md:text-sm text-white">
+              <span className="font-mono font-bold text-sm md:text-base text-white">
                 {qty}
               </span>
-              <span className="text-[7.5px] md:text-[8.5px] font-mono font-medium text-white/60 tracking-wider uppercase">
+              <span className="text-[8.5px] md:text-[9.5px] font-mono font-semibold text-white/70 tracking-wider uppercase">
                 IN PACK
               </span>
             </div>
-            <span className="text-[7.5px] md:text-[8.5px] font-mono font-medium mt-0.5 tracking-tight" style={{ color: themeColor }}>
+            <span className="text-[8.5px] md:text-[9.5px] font-mono font-semibold mt-0.5 tracking-tight" style={{ color: themeColor }}>
               ₹{(qty * ((slot.price || 1900) / 100))}
             </span>
           </div>
@@ -625,20 +625,21 @@ function Y2KSliderButton({
               backgroundSize: "4px 4px"
             }}
           />
+          {/* ADDED text - 100% dead centered across the pill track with increased font size */}
           <div 
-            className="absolute inset-y-0 left-0 right-[32px] flex items-center justify-center font-mono font-semibold text-[9px] md:text-[10.5px] text-black tracking-[0.2em] uppercase"
+            className="absolute inset-0 flex items-center justify-center font-mono font-bold text-xs md:text-sm text-black tracking-[0.22em] uppercase"
             style={{ opacity: isSliding || justAdded ? 1 : 0, transition: "opacity 0.15s" }}
           >
             ADDED
           </div>
         </motion.div>
 
-        {/* Track Text: SWIPE TO ADD on Mobile, CLICK TO ADD on Desktop - perfectly centered & readable */}
+        {/* Track Text: SWIPE TO ADD on Mobile, CLICK TO ADD on Desktop - perfectly centered & readable with increased font size */}
         <div 
-          className="absolute inset-y-0 left-[36px] md:left-[42px] right-[10px] md:right-[14px] flex items-center justify-center pointer-events-none z-10"
+          className="absolute inset-y-0 left-[34px] md:left-[40px] right-[8px] md:right-[12px] flex items-center justify-center pointer-events-none z-10"
           style={{ opacity: isSliding || justAdded ? 0 : 1, transition: "opacity 0.2s" }}
         >
-          <div className="font-mono font-medium text-[8.5px] md:text-[9.5px] tracking-[0.16em] uppercase text-white/90 whitespace-nowrap">
+          <div className="font-mono font-semibold text-[10px] md:text-[11.5px] tracking-[0.14em] uppercase text-white/95 whitespace-nowrap">
             <span className="md:hidden">SWIPE TO ADD</span>
             <span className="hidden md:inline">CLICK TO ADD</span>
           </div>
