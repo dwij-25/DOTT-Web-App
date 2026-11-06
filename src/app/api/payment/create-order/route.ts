@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { razorpay } from "@/lib/razorpay";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { calculateFreeStickersOffer } from "@/lib/offers";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -43,11 +44,21 @@ export async function POST(req: Request) {
       });
     }
 
+    // Calculate "Cart > Rs 250 = Next 5 Stickers Free" Offer
+    const freeOffer = calculateFreeStickersOffer(orderItemsData.map(i => ({
+      id: i.sticker_id,
+      price: i.price,
+      quantity: i.quantity,
+    })));
+
+    // Subtotal after subtracting free stickers discount
+    const subtotalAfterFreeOffer = Math.max(0, subtotal - freeOffer.freeDiscount);
+
     // Get user tier for base discount
     const tier = session.user.tier || "PIXEL";
     const tierDiscountPercent = tier === "MARK" ? 0.15 : tier === "GRID" ? 0.10 : tier === "PIXEL" ? 0.05 : 0;
     
-    let discountAmount = Math.round(subtotal * tierDiscountPercent);
+    let discountAmount = freeOffer.freeDiscount + Math.round(subtotalAfterFreeOffer * tierDiscountPercent);
     let promoCodeUsed = null;
     let isFreeDelivery = false;
     let isFixedPrice1Rs = false;
@@ -64,7 +75,7 @@ export async function POST(req: Request) {
           if (promo.discount_type === "FLAT") {
             discountAmount += promo.discount_value * 100; // in paise
           } else if (promo.discount_type === "PERCENT") {
-            discountAmount += Math.floor(subtotal * (promo.discount_value / 100));
+            discountAmount += Math.floor(subtotalAfterFreeOffer * (promo.discount_value / 100));
           } else if (promo.discount_type === "FREE_DELIVERY") {
             isFreeDelivery = true;
           } else if (promo.discount_type === "FIXED_PRICE_1RS") {
@@ -97,7 +108,7 @@ export async function POST(req: Request) {
       total = (totalStickers * 100) + deliveryCharge;
     } else {
       // Evaluate free delivery based on original subtotal (before discounts)
-      deliveryCharge = isFreeDelivery ? 0 : (subtotal < 30000 && subtotal > 0 ? 7900 : 0);
+      deliveryCharge = isFreeDelivery ? 0 : (subtotal < 35000 && subtotal > 0 ? 7900 : 0);
       total = Math.max(0, subtotal - discountAmount) + deliveryCharge;
     }
 

@@ -262,7 +262,7 @@ export default function HeroSection() {
           >
             {[...Array(4)].map((_, i) => (
               <span key={i} className="pr-4">
-                @DOTT.DROP · 350+ STICKERS · ₹19 EACH · FREE DELIVERY ₹350+ · MARK QUIET ECHO LOUD · SIGNALS NOT STICKERS ·&nbsp;
+                @DOTT.DROP · 350+ STICKERS · ₹19 EACH · CART OVER ₹250 = NEXT 5 FREE · FREE DELIVERY ₹350+ · MARK QUIET ECHO LOUD · SIGNALS NOT STICKERS ·&nbsp;
               </span>
             ))}
           </motion.div>

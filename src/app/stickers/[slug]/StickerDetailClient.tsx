@@ -227,23 +227,32 @@ export default function StickerDetailClient({
             <span className="bg-[#b4ff39]/20 text-[#b4ff39] font-mono text-[9px] px-2 py-0.5 rounded font-bold tracking-widest border border-[#b4ff39]/30">SAVINGS PERK</span>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="border border-white/10 bg-white/5 p-3 rounded-md">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="border border-[#b4ff39]/30 bg-[#b4ff39]/10 p-3 rounded-md">
               <div className="font-bold text-white text-xs mb-1 flex items-center justify-between">
-                <span>PACK OF {minStickersForFreeShipping}+ (₹{freeShippingTotal})</span>
-                <span className="text-[#b4ff39] font-mono text-[10px] font-bold">FREE DELIVERY</span>
+                <span>CART OVER ₹250</span>
+                <span className="text-[#b4ff39] font-mono text-[10px] font-bold">5 FREE STICKERS</span>
               </div>
-              <p className="text-white/70 text-[11px] leading-relaxed">
-                Add <strong className="text-white">{minStickersForFreeShipping} stickers</strong> to cross ₹{freeShippingThreshold} and unlock 100% free express delivery anywhere in India.
+              <p className="text-white/80 text-[11px] leading-relaxed">
+                Reach ₹250 in your pack to get the <strong className="text-[#b4ff39]">next 5 stickers 100% FREE</strong> automatically.
               </p>
             </div>
             <div className="border border-white/10 bg-white/5 p-3 rounded-md">
               <div className="font-bold text-white text-xs mb-1 flex items-center justify-between">
-                <span>TIER REWARDS & PERKS</span>
+                <span>FREE DELIVERY</span>
+                <span className="text-[#b4ff39] font-mono text-[10px] font-bold">₹{freeShippingThreshold}+</span>
+              </div>
+              <p className="text-white/70 text-[11px] leading-relaxed">
+                Cross ₹{freeShippingThreshold} to unlock 100% free express delivery anywhere in India.
+              </p>
+            </div>
+            <div className="border border-white/10 bg-white/5 p-3 rounded-md">
+              <div className="font-bold text-white text-xs mb-1 flex items-center justify-between">
+                <span>TIER PERKS</span>
                 <span className="text-[#b4ff39] font-mono text-[10px] font-bold">UP TO 15% OFF</span>
               </div>
               <p className="text-white/70 text-[11px] leading-relaxed">
-                Collect 5+ stickers to advance toward GRID & MARK member tiers for automatic checkout discounts.
+                Advance toward GRID & MARK member tiers for extra automatic checkout discounts.
               </p>
             </div>
           </div>

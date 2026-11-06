@@ -1,6 +1,7 @@
 "use client";
 
 import { useCartStore } from "@/lib/store";
+import { calculateFreeStickersOffer } from "@/lib/offers";
 import { useState, useEffect } from "react";
 import Script from "next/script";
 import { useSession } from "next-auth/react";
@@ -55,8 +56,20 @@ export default function CheckoutPage() {
 
   const rawSubtotal = items.reduce((acc, item) => acc + (item.sticker.price * item.quantity), 0);
   
-  let baseDiscount = Math.round(rawSubtotal * tierDiscountPercent);
-  let finalSubtotal = rawSubtotal - baseDiscount;
+  // Calculate "Cart > Rs 250 = Next 5 Stickers Free" Offer
+  const offerItems = items.map(i => ({
+    id: i.sticker.id,
+    name: i.sticker.name,
+    price: i.sticker.price,
+    quantity: i.quantity,
+  }));
+  const freeOffer = calculateFreeStickersOffer(offerItems);
+
+  // Subtotal after subtracting the free stickers discount
+  const subtotalAfterFreeOffer = Math.max(0, rawSubtotal - freeOffer.freeDiscount);
+
+  let baseDiscount = Math.round(subtotalAfterFreeOffer * tierDiscountPercent);
+  let finalSubtotal = subtotalAfterFreeOffer - baseDiscount;
   let delivery = 0;
   let total = 0;
 
@@ -81,10 +94,10 @@ export default function CheckoutPage() {
     if (appliedPromo?.type === "FLAT") {
       baseDiscount += appliedPromo.value * 100;
     } else if (appliedPromo?.type === "PERCENT") {
-      baseDiscount += Math.floor(rawSubtotal * (appliedPromo.value / 100));
+      baseDiscount += Math.floor(subtotalAfterFreeOffer * (appliedPromo.value / 100));
     }
     
-    finalSubtotal = Math.max(0, rawSubtotal - baseDiscount);
+    finalSubtotal = Math.max(0, subtotalAfterFreeOffer - baseDiscount);
     // Free delivery if raw subtotal >= 350 Rs (35000 paise) before discounts
     delivery = appliedPromo?.type === "FREE_DELIVERY" ? 0 : (rawSubtotal < 35000 && rawSubtotal > 0 ? 7900 : 0);
     total = finalSubtotal + delivery;
@@ -403,11 +416,29 @@ export default function CheckoutPage() {
 
             {/* Calculations */}
             <div className="border border-[#1A1A1A] bg-black/50 p-6">
+              {freeOffer.qualifies && freeOffer.freeStickersRemaining > 0 && (
+                <div className="mb-4 p-3 bg-[#b4ff39]/10 border border-[#b4ff39]/30 rounded text-[11px] text-[#b4ff39] flex items-center justify-between">
+                  <span>
+                    🎁 You unlocked <strong>5 FREE stickers</strong>! ({freeOffer.freeStickersClaimed}/5 claimed)
+                  </span>
+                  <Link href="/#drop" className="underline font-bold hover:text-white ml-2 shrink-0">
+                    + Add {freeOffer.freeStickersRemaining} more free
+                  </Link>
+                </div>
+              )}
+
               <div className="flex justify-between text-xs mb-3 text-white/70">
                 <span>SUBTOTAL</span>
-                <span className={baseDiscount > 0 ? "line-through opacity-50 mr-2" : ""}>₹{rawSubtotal / 100}</span>
+                <span className={(baseDiscount > 0 || freeOffer.freeDiscount > 0) ? "line-through opacity-50 mr-2" : ""}>₹{rawSubtotal / 100}</span>
               </div>
               
+              {freeOffer.freeDiscount > 0 && (
+                <div className="flex justify-between text-xs mb-3 text-[#b4ff39] font-mono font-bold">
+                  <span>5 FREE STICKERS (CART &gt; ₹250)</span>
+                  <span>-₹{freeOffer.freeDiscount / 100}</span>
+                </div>
+              )}
+
               {baseDiscount > 0 && (
                 <div className="flex justify-between text-xs mb-3 text-green-400">
                   <span>DISCOUNT {appliedPromo ? `(${appliedPromo.code})` : `(TIER ${tier})`}</span>
