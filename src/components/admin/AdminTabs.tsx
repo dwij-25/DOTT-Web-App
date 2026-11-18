@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import AiModelStudio from "./AiModelStudio";
@@ -13,8 +13,40 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
   const [ordersPage, setOrdersPage] = useState(1);
   const [usersPage, setUsersPage] = useState(1);
   const itemsPerPage = 50;
-  
-  const paginatedOrders = orders.slice((ordersPage - 1) * itemsPerPage, ordersPage * itemsPerPage);
+
+  // Order filtering (ALL, DATE, MONTH) and expansion states
+  const [orderFilterType, setOrderFilterType] = useState<"ALL" | "DATE" | "MONTH">("ALL");
+  const [filterDate, setFilterDate] = useState<string>("");
+  const [filterMonth, setFilterMonth] = useState<string>("");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  const toggleOrderExpand = (orderId: string) => {
+    setExpandedOrderId(prev => prev === orderId ? null : orderId);
+  };
+
+  // Helper to format date in IST YYYY-MM-DD
+  const getOrderDateKey = (dateInput: string | Date) => {
+    const d = new Date(dateInput);
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(d);
+  };
+
+  const filteredOrders = useMemo(() => {
+    if (orderFilterType === "DATE" && filterDate) {
+      return orders.filter((o: any) => getOrderDateKey(o.created_at) === filterDate);
+    }
+    if (orderFilterType === "MONTH" && filterMonth) {
+      return orders.filter((o: any) => getOrderDateKey(o.created_at).startsWith(filterMonth));
+    }
+    return orders;
+  }, [orders, orderFilterType, filterDate, filterMonth]);
+
+  const paginatedOrders = filteredOrders.slice((ordersPage - 1) * itemsPerPage, ordersPage * itemsPerPage);
   const paginatedUsers = users.slice((usersPage - 1) * itemsPerPage, usersPage * itemsPerPage);
 
   // Toast notification state
@@ -27,25 +59,31 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
 
   // Sticker zip download states
   const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
-  const [isDownloadingDay, setIsDownloadingDay] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  });
 
-  const ordersOnSelectedDate = useMemo(() => {
-    if (!selectedDate) return [];
-    return orders.filter((o: any) => {
-      const d = new Date(o.created_at);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}` === selectedDate;
+  const formatOrderDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "numeric",
+      month: "short",
+      year: "numeric"
     });
-  }, [orders, selectedDate]);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+        return "bg-green-500/20 text-green-400 border border-green-500/30";
+      case "SHIPPED":
+        return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+      case "DELIVERED":
+        return "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
+      case "CANCELLED":
+        return "bg-red-500/20 text-red-400 border border-red-500/30";
+      case "PENDING":
+      default:
+        return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+    }
+  };
 
 
   const defaultTags = ["HOLO", "MATTE", "RARE", "PROTOTYPE", "ORIGINAL", "PIXEL"];
@@ -88,22 +126,30 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
   });
 
   const exportCSV = () => {
+    const listToExport = filteredOrders;
     const csvRows = [
-      ["Order ID", "User Email", "Amount", "Status", "Date"],
-      ...orders.map((o: any) => [
-        o.order_number,
-        o.user.email,
-        o.total / 100,
-        o.payment_status,
-        new Date(o.created_at).toISOString()
-      ])
+      ["Order ID", "Customer", "User Email", "Phone", "Amount (INR)", "Status", "Date"],
+      ...listToExport.map((o: any) => {
+        const addr = typeof o.delivery_address === 'string'
+          ? (() => { try { return JSON.parse(o.delivery_address); } catch { return {}; } })()
+          : (o.delivery_address || {});
+        return [
+          o.order_number,
+          addr.billerName || o.user?.name || "Customer",
+          o.user?.email || "N/A",
+          addr.billerMobile || "N/A",
+          o.total / 100,
+          o.payment_status,
+          new Date(o.created_at).toISOString()
+        ];
+      })
     ];
     const csvString = csvRows.map(row => row.join(",")).join("\n");
     const blob = new Blob([csvString], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "dott_orders.csv";
+    a.download = `dott_orders_${orderFilterType.toLowerCase()}.csv`;
     a.click();
   };
 
@@ -135,44 +181,6 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
       showToast(err.message || "Error downloading stickers zip");
     } finally {
       setDownloadingOrderId(null);
-    }
-  };
-
-  const downloadDayStickersZip = async () => {
-    if (!selectedDate) {
-      showToast("Please select a date");
-      return;
-    }
-    setIsDownloadingDay(true);
-    try {
-      const res = await fetch(`/api/admin/orders/download-stickers?date=${selectedDate}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.message || `No orders found on ${selectedDate}`);
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-
-      const disposition = res.headers.get("content-disposition");
-      let filename = `DOTT-ORDERS-${selectedDate}.zip`;
-      if (disposition && disposition.includes("filename=")) {
-        const match = disposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) filename = match[1];
-      }
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast(`Downloaded archive: ${filename}`);
-    } catch (err: any) {
-      console.error("Day download error:", err);
-      showToast(err.message || "Error downloading day archive");
-    } finally {
-      setIsDownloadingDay(false);
     }
   };
 
@@ -425,172 +433,513 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
           )}
 
           {activeTab === "ORDERS" && (
-            <motion.div key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-6 border-b border-white/10">
-                <div>
-                  <h2 className="text-lg font-bold tracking-widest">ORDER MANAGEMENT</h2>
-                  <p className="text-xs text-white/50 font-mono mt-0.5">Download high-res sticker print assets & packing manifests</p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Date picker & batch sticker download */}
-                  <div className="flex items-center gap-2 bg-[#111] border border-white/20 p-1.5 rounded">
-                    <span className="text-[10px] text-white/50 uppercase tracking-widest pl-1 font-mono">DATE:</span>
-                    <input 
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="bg-black text-white text-xs px-2 py-1 border border-white/10 rounded font-mono outline-none focus:border-[#b4ff39]"
-                    />
-                    <button
-                      onClick={() => {
-                        const now = new Date();
-                        const year = now.getFullYear();
-                        const month = String(now.getMonth() + 1).padStart(2, "0");
-                        const day = String(now.getDate()).padStart(2, "0");
-                        setSelectedDate(`${year}-${month}-${day}`);
-                      }}
-                      className="text-[9px] font-bold px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
-                      title="Jump to today"
-                    >
-                      TODAY
-                    </button>
-                    <button
-                      onClick={downloadDayStickersZip}
-                      disabled={isDownloadingDay}
-                      className="bg-[#b4ff39] hover:bg-white text-black text-xs font-bold px-3 py-1.5 rounded transition-all tracking-wider flex items-center gap-1.5 disabled:opacity-50"
-                      title={`Download sticker zip package for orders on ${selectedDate}`}
-                    >
-                      {isDownloadingDay ? (
-                        <span className="animate-pulse">ZIPPING...</span>
-                      ) : (
-                        <span>DOWNLOAD DAY'S STICKERS ({ordersOnSelectedDate.length}) 📦</span>
-                      )}
-                    </button>
+            <motion.div key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+              {/* Header and Filter Controls */}
+              <div className="flex flex-col gap-4 pb-6 border-b border-white/10">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold tracking-widest text-white">ORDER MANAGEMENT</h2>
+                    <div className="text-xs text-white/50 font-mono mt-0.5">
+                      Showing {filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"}
+                    </div>
                   </div>
 
-                  <button onClick={exportCSV} className="border border-white/30 text-white text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors rounded">
+                  <button 
+                    onClick={exportCSV} 
+                    className="border border-white/30 text-white text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors rounded font-mono cursor-pointer"
+                  >
                     EXPORT CSV ↓
                   </button>
                 </div>
+
+                {/* Date & Month Filter Selector */}
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <div className="inline-flex bg-[#111] border border-white/20 p-1 rounded">
+                    <button
+                      onClick={() => {
+                        setOrderFilterType("ALL");
+                        setFilterDate("");
+                        setFilterMonth("");
+                        setOrdersPage(1);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold tracking-wider rounded transition-colors cursor-pointer ${
+                        orderFilterType === "ALL" ? "bg-white text-black" : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      ALL ({orders.length})
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setOrderFilterType("DATE");
+                        setFilterMonth("");
+                        setOrdersPage(1);
+                        if (!filterDate) {
+                          setFilterDate(getOrderDateKey(new Date()));
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold tracking-wider rounded transition-colors cursor-pointer ${
+                        orderFilterType === "DATE" ? "bg-white text-black" : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      BY DATE
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setOrderFilterType("MONTH");
+                        setFilterDate("");
+                        setOrdersPage(1);
+                        if (!filterMonth) {
+                          setFilterMonth(getOrderDateKey(new Date()).slice(0, 7));
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold tracking-wider rounded transition-colors cursor-pointer ${
+                        orderFilterType === "MONTH" ? "bg-white text-black" : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      BY MONTH
+                    </button>
+                  </div>
+
+                  {/* Date Input */}
+                  {orderFilterType === "DATE" && (
+                    <div className="flex items-center gap-2 bg-[#111] border border-white/20 px-3 py-1.5 rounded">
+                      <span className="text-[10px] text-white/50 uppercase font-mono">DATE:</span>
+                      <input 
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => {
+                          setFilterDate(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="bg-black text-white text-xs px-2 py-1 border border-white/20 rounded font-mono outline-none focus:border-[#b4ff39]"
+                      />
+                      <button
+                        onClick={() => {
+                          setFilterDate(getOrderDateKey(new Date()));
+                          setOrdersPage(1);
+                        }}
+                        className="text-[10px] font-bold px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors cursor-pointer font-mono"
+                      >
+                        TODAY
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Month Input */}
+                  {orderFilterType === "MONTH" && (
+                    <div className="flex items-center gap-2 bg-[#111] border border-white/20 px-3 py-1.5 rounded">
+                      <span className="text-[10px] text-white/50 uppercase font-mono">MONTH:</span>
+                      <input 
+                        type="month"
+                        value={filterMonth}
+                        onChange={(e) => {
+                          setFilterMonth(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="bg-black text-white text-xs px-2 py-1 border border-white/20 rounded font-mono outline-none focus:border-[#b4ff39]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Reset filter button */}
+                  {orderFilterType !== "ALL" && (
+                    <button
+                      onClick={() => {
+                        setOrderFilterType("ALL");
+                        setFilterDate("");
+                        setFilterMonth("");
+                        setOrdersPage(1);
+                      }}
+                      className="text-[11px] text-white/50 hover:text-white underline font-mono px-2 cursor-pointer"
+                    >
+                      RESET
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-xs text-white/50 border-b border-white/20 uppercase tracking-widest">
-                    <tr>
-                      <th className="pb-3 pr-4">Order Details</th>
-                      <th className="pb-3 px-4">Customer</th>
-                      <th className="pb-3 px-4">Stickers Ordered</th>
-                      <th className="pb-3 px-4">Total</th>
-                      <th className="pb-3 px-4">Status</th>
-                      <th className="pb-3 pl-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedOrders.map((order: any) => {
-                      const addr = typeof order.delivery_address === 'string' 
-                        ? (() => { try { return JSON.parse(order.delivery_address); } catch { return {}; } })() 
-                        : (order.delivery_address || {});
-                      const customerName = addr.billerName || order.user.name || "Customer";
-                      const customerPhone = addr.billerMobile || "N/A";
-                      
-                      return (
-                        <tr key={order.id} className="border-b border-white/10 last:border-0 hover:bg-white/5 transition-colors align-top">
-                          <td className="py-4 pr-4 font-body">
-                            <div className="font-bold text-white text-xs tracking-wider">{order.order_number}</div>
-                            <div className="text-[10px] text-white/40 mt-1">{new Date(order.created_at).toLocaleDateString()}</div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="font-semibold text-white text-xs">{customerName}</div>
-                            <div className="text-[11px] text-white/60 font-mono mt-0.5">{order.user.email}</div>
-                            {customerPhone !== "N/A" && (
-                              <div className="text-[10px] text-white/40 font-mono mt-0.5">📞 {customerPhone}</div>
-                            )}
-                          </td>
-                          <td className="py-4 px-4 min-w-[280px]">
-                            <div className="flex flex-wrap gap-2">
-                              {order.items?.map((item: any) => (
-                                <div key={item.id} className="flex items-center gap-2 bg-black/60 border border-white/15 p-1.5 rounded pr-2.5">
-                                  <div className="w-10 h-10 bg-[#111] border border-white/10 rounded flex items-center justify-center p-0.5 flex-shrink-0 overflow-hidden">
-                                    {item.sticker?.image_url ? (
-                                      <img src={item.sticker.image_url} alt={item.sticker.name} className="w-full h-full object-contain" />
-                                    ) : (
-                                      <span className="text-[8px] text-white/30">N/A</span>
-                                    )}
-                                  </div>
-                                  <div className="text-[11px] leading-tight">
-                                    <div className="font-bold text-white truncate max-w-[130px]" title={item.sticker?.name}>
-                                      {item.sticker?.name || "Sticker"}
-                                    </div>
-                                    <div className="text-[9px] text-white/50 flex items-center gap-1.5 mt-0.5 font-mono">
-                                      <span className="bg-[#b4ff39]/20 text-[#b4ff39] px-1 rounded font-bold">x{item.quantity}</span>
-                                      <span>₹{(item.price || 0) / 100}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
+              {/* Mobile Card View (< md) */}
+              <div className="space-y-3 md:hidden">
+                {paginatedOrders.length === 0 ? (
+                  <div className="text-center py-12 text-white/40 font-mono text-xs border border-white/10 p-6 rounded bg-[#111]">
+                    No orders found for the selected filter.
+                  </div>
+                ) : (
+                  paginatedOrders.map((order: any) => {
+                    const isExpanded = expandedOrderId === order.id;
+                    const addr = typeof order.delivery_address === 'string' 
+                      ? (() => { try { return JSON.parse(order.delivery_address); } catch { return {}; } })() 
+                      : (order.delivery_address || {});
+                    const customerName = addr.billerName || order.user?.name || "Customer";
+                    const totalStickerCount = order.items?.reduce((acc: any, i: any) => acc + i.quantity, 0) || 0;
+
+                    return (
+                      <div key={order.id} className="border border-white/15 bg-[#111] rounded-lg overflow-hidden transition-all">
+                        {/* Mobile Card Header */}
+                        <div 
+                          onClick={() => toggleOrderExpand(order.id)}
+                          className="p-4 cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="font-bold text-white text-xs font-mono tracking-wider">{order.order_number}</span>
+                            <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded ${getStatusBadge(order.payment_status)}`}>
+                              {order.payment_status}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-white/90 font-medium truncate mb-0.5">
+                            {customerName}
+                          </div>
+                          <div className="text-[11px] text-white/50 font-mono truncate mb-3">
+                            {order.user?.email || "N/A"}
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10 font-mono">
+                            <span className="text-white/60">{formatOrderDate(order.created_at)}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white/50 text-[11px]">{totalStickerCount} {totalStickerCount === 1 ? 'sticker' : 'stickers'}</span>
+                              <span className="font-bold text-white text-sm">₹{order.total / 100}</span>
                             </div>
-                          </td>
-                          <td className="py-4 px-4 font-body whitespace-nowrap">
-                            <div className="font-bold text-white">₹{order.total / 100}</div>
-                            <div className="text-[9px] text-white/40 mt-0.5">{order.items?.reduce((acc: any, i: any) => acc + i.quantity, 0)} items</div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <select 
-                              className="bg-black border border-white/20 text-xs p-1 outline-none focus:border-white"
-                              defaultValue={order.payment_status}
-                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            >
-                              <option value="PENDING">PENDING</option>
-                              <option value="COMPLETED">COMPLETED</option>
-                              <option value="SHIPPED">SHIPPED</option>
-                              <option value="DELIVERED">DELIVERED</option>
-                            </select>
-                          </td>
-                          <td className="py-4 pl-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2">
-                              <button 
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-bold text-[#b4ff39] font-mono tracking-widest uppercase py-1 bg-white/5 rounded border border-white/10">
+                            <span>{isExpanded ? "HIDE DETAILS ▲" : "VIEW ORDER ▼"}</span>
+                          </div>
+                        </div>
+
+                        {/* Mobile Expanded Drawer */}
+                        {isExpanded && (
+                          <div className="border-t border-white/15 bg-black p-4 space-y-4">
+                            {/* Address & Customer details */}
+                            <div className="bg-[#151515] border border-white/10 p-3 rounded text-xs space-y-2">
+                              <div className="text-white/40 uppercase tracking-widest text-[9px] font-mono">DELIVERY ADDRESS</div>
+                              <div className="font-bold text-white">{customerName}</div>
+                              {addr.billerMobile && (
+                                <div className="text-white/70 font-mono text-[11px]">📞 {addr.billerMobile}</div>
+                              )}
+                              <div className="text-white/70 leading-relaxed font-mono text-[11px]">
+                                {addr.houseFlat ? `${addr.houseFlat}, ` : ""}
+                                {addr.streetArea ? `${addr.streetArea}, ` : ""}
+                                {addr.cityName ? `${addr.cityName}, ` : ""}
+                                {addr.stateIso ? `${addr.stateIso} ` : ""}
+                                {addr.pincode ? `PIN: ${addr.pincode}` : ""}
+                                {!addr.cityName && !addr.houseFlat && "No address details provided"}
+                              </div>
+                            </div>
+
+                            {/* Status Selector */}
+                            <div className="bg-[#151515] border border-white/10 p-3 rounded flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-white/50 uppercase font-mono">STATUS:</span>
+                              <select 
+                                className="bg-black border border-white/30 text-xs px-2 py-1.5 rounded outline-none focus:border-[#b4ff39] font-mono text-white"
+                                defaultValue={order.payment_status}
+                                onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                              >
+                                <option value="PENDING">PENDING</option>
+                                <option value="COMPLETED">COMPLETED</option>
+                                <option value="SHIPPED">SHIPPED</option>
+                                <option value="DELIVERED">DELIVERED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                              </select>
+                            </div>
+
+                            {/* Stickers Ordered */}
+                            <div>
+                              <div className="text-[10px] text-white/50 uppercase tracking-widest font-mono mb-2">
+                                STICKERS ORDERED ({totalStickerCount})
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {order.items?.map((item: any) => (
+                                  <div key={item.id} className="bg-[#151515] border border-white/10 p-2 rounded flex flex-col justify-between">
+                                    <div className="aspect-square bg-black rounded flex items-center justify-center p-2 mb-2 overflow-hidden border border-white/5">
+                                      {item.sticker?.image_url ? (
+                                        <img src={item.sticker.image_url} alt={item.sticker.name} className="w-full h-full object-contain" />
+                                      ) : (
+                                        <span className="text-[9px] text-white/30">N/A</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-white text-[11px] truncate" title={item.sticker?.name}>
+                                        {item.sticker?.name || "Sticker"}
+                                      </div>
+                                      <div className="flex items-center justify-between mt-1 text-[10px] font-mono">
+                                        <span className="bg-[#b4ff39]/20 text-[#b4ff39] px-1 py-0.5 rounded font-bold">x{item.quantity}</span>
+                                        <span className="text-white/60">₹{(item.price || 0) / 100}</span>
+                                      </div>
+                                      <div className="text-[9px] text-white/40 font-mono mt-0.5">
+                                        {item.sticker?.size || "5cm"} · {item.sticker?.finish || "GLOSS"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col gap-2 pt-2">
+                              <button
                                 onClick={() => downloadOrderStickersZip(order)}
                                 disabled={downloadingOrderId === order.id}
-                                title={`Download ZIP of sticker images for ${order.order_number}`}
-                                className="bg-white/10 border border-white/25 hover:border-[#b4ff39] hover:bg-[#b4ff39] text-white hover:text-black text-[10px] font-bold px-2.5 py-1.5 transition-all tracking-widest inline-flex items-center gap-1 rounded disabled:opacity-50"
+                                className="w-full bg-white hover:bg-[#b4ff39] text-black font-bold text-xs py-3 rounded transition-colors tracking-wider text-center flex items-center justify-center disabled:opacity-50 cursor-pointer"
                               >
-                                {downloadingOrderId === order.id ? (
-                                  <span className="animate-pulse">ZIPPING...</span>
-                                ) : (
-                                  <span>ZIP 📦</span>
-                                )}
+                                {downloadingOrderId === order.id ? "ZIPPING..." : "DOWNLOAD ZIP"}
                               </button>
 
-                              <button 
-                                onClick={() => downloadInvoice(order)} 
-                                title="Open official Tax Invoice (PDF & Print)"
-                                className="bg-[#b4ff39] text-black text-[10px] font-bold px-3 py-1.5 hover:bg-white transition-colors tracking-widest inline-flex items-center gap-1 rounded"
+                              <button
+                                onClick={() => downloadInvoice(order)}
+                                className="w-full bg-white/10 hover:bg-white hover:text-black border border-white/30 text-white font-bold text-xs py-3 rounded transition-colors tracking-wider text-center cursor-pointer"
                               >
                                 INVOICE ↗
                               </button>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Desktop Table View (>= md) */}
+              <div className="hidden md:block border border-white/15 rounded-lg overflow-hidden bg-black">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs text-white/50 border-b border-white/20 uppercase tracking-widest bg-[#111]">
+                    <tr>
+                      <th className="py-3 px-4">Order Details</th>
+                      <th className="py-3 px-4">Customer</th>
+                      <th className="py-3 px-4">Stickers</th>
+                      <th className="py-3 px-4">Total</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12 text-white/40 font-mono text-xs">
+                          No orders found for the selected filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedOrders.map((order: any) => {
+                        const isExpanded = expandedOrderId === order.id;
+                        const addr = typeof order.delivery_address === 'string' 
+                          ? (() => { try { return JSON.parse(order.delivery_address); } catch { return {}; } })() 
+                          : (order.delivery_address || {});
+                        const customerName = addr.billerName || order.user?.name || "Customer";
+                        const customerPhone = addr.billerMobile || "N/A";
+                        const totalStickers = order.items?.reduce((acc: any, i: any) => acc + i.quantity, 0) || 0;
+
+                        return (
+                          <React.Fragment key={order.id}>
+                            {/* Summary Row (Clickable) */}
+                            <tr 
+                              onClick={() => toggleOrderExpand(order.id)}
+                              className={`border-b border-white/10 transition-colors cursor-pointer select-none ${
+                                isExpanded ? "bg-white/10" : "hover:bg-white/5"
+                              }`}
+                            >
+                              <td className="py-4 px-4 font-body">
+                                <div className="font-bold text-white text-xs tracking-wider font-mono">{order.order_number}</div>
+                                <div className="text-[10px] text-white/40 mt-1 font-mono">{formatOrderDate(order.created_at)}</div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <div className="font-semibold text-white text-xs">{customerName}</div>
+                                <div className="text-[11px] text-white/60 font-mono mt-0.5 truncate max-w-[200px]">{order.user?.email}</div>
+                                {customerPhone !== "N/A" && (
+                                  <div className="text-[10px] text-white/40 font-mono mt-0.5">📞 {customerPhone}</div>
+                                )}
+                              </td>
+                              <td className="py-4 px-4 font-mono text-xs">
+                                <span className="bg-white/10 text-white px-2 py-1 rounded font-bold text-[11px]">
+                                  {totalStickers} {totalStickers === 1 ? 'sticker' : 'stickers'}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 font-body whitespace-nowrap">
+                                <div className="font-bold text-white text-sm">₹{order.total / 100}</div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <span className={`text-[10px] font-bold font-mono px-2.5 py-1 rounded ${getStatusBadge(order.payment_status)}`}>
+                                  {order.payment_status}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadOrderStickersZip(order);
+                                    }}
+                                    disabled={downloadingOrderId === order.id}
+                                    title={`Download ZIP of sticker images for ${order.order_number}`}
+                                    className="bg-white/10 border border-white/25 hover:border-[#b4ff39] hover:bg-[#b4ff39] text-white hover:text-black text-[10px] font-bold px-3 py-1.5 transition-all tracking-wider rounded disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {downloadingOrderId === order.id ? "ZIPPING..." : "DOWNLOAD ZIP"}
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadInvoice(order);
+                                    }}
+                                    className="bg-[#b4ff39] text-black text-[10px] font-bold px-3 py-1.5 hover:bg-white transition-colors tracking-wider rounded cursor-pointer"
+                                  >
+                                    INVOICE ↗
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleOrderExpand(order.id);
+                                    }}
+                                    className="text-white/60 hover:text-white px-2 py-1 text-xs font-mono"
+                                    title={isExpanded ? "Collapse" : "Expand"}
+                                  >
+                                    {isExpanded ? "▲" : "▼"}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Desktop Expanded Drawer */}
+                            {isExpanded && (
+                              <tr className="bg-[#0A0A0A] border-b border-white/20">
+                                <td colSpan={6} className="p-6">
+                                  <div className="space-y-6">
+                                    {/* Info Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b border-white/10 text-xs">
+                                      {/* Customer Info */}
+                                      <div className="bg-[#111] border border-white/10 p-4 rounded">
+                                        <div className="text-white/40 uppercase tracking-widest text-[9px] font-mono mb-2">CUSTOMER DETAILS</div>
+                                        <div className="font-bold text-white text-sm">{customerName}</div>
+                                        <div className="text-white/70 font-mono mt-1 text-xs">{order.user?.email || "N/A"}</div>
+                                        {customerPhone !== "N/A" && (
+                                          <div className="text-white/60 font-mono mt-1 text-xs">📞 {customerPhone}</div>
+                                        )}
+                                      </div>
+
+                                      {/* Delivery Address */}
+                                      <div className="bg-[#111] border border-white/10 p-4 rounded">
+                                        <div className="text-white/40 uppercase tracking-widest text-[9px] font-mono mb-2">DELIVERY ADDRESS</div>
+                                        <div className="text-white/80 leading-relaxed font-mono text-xs">
+                                          {addr.houseFlat ? `${addr.houseFlat}, ` : ""}
+                                          {addr.streetArea ? `${addr.streetArea}, ` : ""}
+                                          {addr.cityName ? `${addr.cityName}, ` : ""}
+                                          {addr.stateIso ? `${addr.stateIso} ` : ""}
+                                          {addr.pincode ? `PIN: ${addr.pincode}` : ""}
+                                          {!addr.cityName && !addr.houseFlat && "No address details provided"}
+                                        </div>
+                                      </div>
+
+                                      {/* Order Summary & Status Selector */}
+                                      <div className="bg-[#111] border border-white/10 p-4 rounded flex flex-col justify-between">
+                                        <div>
+                                          <div className="text-white/40 uppercase tracking-widest text-[9px] font-mono mb-2">STATUS & TOTAL</div>
+                                          <div className="flex items-center justify-between text-xs mb-2">
+                                            <span className="text-white/60 font-mono">Order Total:</span>
+                                            <span className="font-bold text-white text-base font-mono">₹{order.total / 100}</span>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                                          <span className="text-[10px] text-white/50 uppercase font-mono">UPDATE STATUS:</span>
+                                          <select 
+                                            className="bg-black border border-white/30 text-xs px-2 py-1.5 rounded outline-none focus:border-[#b4ff39] font-mono text-white flex-1"
+                                            defaultValue={order.payment_status}
+                                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                          >
+                                            <option value="PENDING">PENDING</option>
+                                            <option value="COMPLETED">COMPLETED</option>
+                                            <option value="SHIPPED">SHIPPED</option>
+                                            <option value="DELIVERED">DELIVERED</option>
+                                            <option value="CANCELLED">CANCELLED</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Stickers Gallery */}
+                                    <div>
+                                      <div className="text-xs font-bold text-white uppercase tracking-wider font-mono mb-3">
+                                        ORDERED STICKERS ({totalStickers} items)
+                                      </div>
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                        {order.items?.map((item: any) => (
+                                          <div key={item.id} className="bg-[#111] border border-white/15 p-2.5 rounded flex flex-col justify-between">
+                                            <div className="aspect-square bg-black border border-white/10 rounded flex items-center justify-center p-2 mb-2 overflow-hidden">
+                                              {item.sticker?.image_url ? (
+                                                <img src={item.sticker.image_url} alt={item.sticker.name} className="w-full h-full object-contain" />
+                                              ) : (
+                                                <span className="text-[9px] text-white/30 font-mono">NO IMAGE</span>
+                                              )}
+                                            </div>
+                                            <div>
+                                              <div className="font-bold text-white text-xs truncate" title={item.sticker?.name}>
+                                                {item.sticker?.name || "Sticker"}
+                                              </div>
+                                              <div className="flex items-center justify-between mt-1 text-[11px] font-mono">
+                                                <span className="bg-[#b4ff39]/20 text-[#b4ff39] px-1.5 py-0.5 rounded font-bold">x{item.quantity}</span>
+                                                <span className="text-white/70">₹{(item.price || 0) / 100}</span>
+                                              </div>
+                                              <div className="text-[10px] text-white/40 font-mono mt-0.5">
+                                                {item.sticker?.size || "5cm"} · {item.sticker?.finish || "GLOSS"}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Bottom Action Buttons */}
+                                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          downloadOrderStickersZip(order);
+                                        }}
+                                        disabled={downloadingOrderId === order.id}
+                                        className="bg-white hover:bg-[#b4ff39] text-black font-bold text-xs px-4 py-2.5 rounded transition-colors tracking-wider disabled:opacity-50 cursor-pointer"
+                                      >
+                                        {downloadingOrderId === order.id ? "ZIPPING..." : "DOWNLOAD ZIP"}
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          downloadInvoice(order);
+                                        }}
+                                        className="bg-white/10 hover:bg-white hover:text-black border border-white/30 text-white font-bold text-xs px-4 py-2.5 rounded transition-colors tracking-wider cursor-pointer"
+                                      >
+                                        INVOICE ↗
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 flex justify-between items-center text-xs tracking-widest text-white/50">
+
+              {/* Pagination */}
+              <div className="mt-4 flex justify-between items-center text-xs tracking-widest text-white/50 font-mono">
                 <button 
                   disabled={ordersPage === 1}
                   onClick={() => setOrdersPage(p => p - 1)}
-                  className="px-4 py-2 border border-white/20 hover:bg-white/5 disabled:opacity-30 transition-colors"
+                  className="px-4 py-2 border border-white/20 hover:bg-white/5 disabled:opacity-30 transition-colors cursor-pointer rounded"
                 >
                   PREVIOUS
                 </button>
-                <span>PAGE {ordersPage} OF {Math.ceil(orders.length / itemsPerPage)}</span>
+                <span>PAGE {ordersPage} OF {Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage))}</span>
                 <button 
-                  disabled={ordersPage * itemsPerPage >= orders.length}
+                  disabled={ordersPage * itemsPerPage >= filteredOrders.length}
                   onClick={() => setOrdersPage(p => p + 1)}
-                  className="px-4 py-2 border border-white/20 hover:bg-white/5 disabled:opacity-30 transition-colors"
+                  className="px-4 py-2 border border-white/20 hover:bg-white/5 disabled:opacity-30 transition-colors cursor-pointer rounded"
                 >
                   NEXT
                 </button>
