@@ -30,7 +30,7 @@ export default function ReturnsPage() {
 
               <div>
                 <h3 className="font-bold text-[#b4ff39] mb-2 tracking-widest text-sm">✦ DEFECTIVE STICKER</h3>
-                <p>Peels off in under 1 months under normal use.</p>
+                <p>If your sticker peels off within 30 days of application under normal usage conditions, please contact us with your order number and a photograph of the issue. We’ll review the claim and arrange a replacement if the defect is confirmed.</p>
               </div>
             </div>
           </section>

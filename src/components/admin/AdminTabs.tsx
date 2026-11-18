@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import AiModelStudio from "./AiModelStudio";
@@ -24,6 +24,28 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Sticker zip download states
+  const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
+  const [isDownloadingDay, setIsDownloadingDay] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+
+  const ordersOnSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return orders.filter((o: any) => {
+      const d = new Date(o.created_at);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}` === selectedDate;
+    });
+  }, [orders, selectedDate]);
 
 
   const defaultTags = ["HOLO", "MATTE", "RARE", "PROTOTYPE", "ORIGINAL", "PIXEL"];
@@ -88,6 +110,70 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
   const downloadInvoice = (order: any) => {
     // Open the exact official HTML & printable tax invoice provided to users
     window.open(`/invoice/${order.order_number}`, "_blank");
+  };
+
+  const downloadOrderStickersZip = async (order: any) => {
+    setDownloadingOrderId(order.id);
+    try {
+      const res = await fetch(`/api/admin/orders/download-stickers?orderId=${order.id}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to download sticker archive");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${order.order_number}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Downloaded stickers for ${order.order_number}`);
+    } catch (err: any) {
+      console.error("Download error:", err);
+      showToast(err.message || "Error downloading stickers zip");
+    } finally {
+      setDownloadingOrderId(null);
+    }
+  };
+
+  const downloadDayStickersZip = async () => {
+    if (!selectedDate) {
+      showToast("Please select a date");
+      return;
+    }
+    setIsDownloadingDay(true);
+    try {
+      const res = await fetch(`/api/admin/orders/download-stickers?date=${selectedDate}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.message || `No orders found on ${selectedDate}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      const disposition = res.headers.get("content-disposition");
+      let filename = `DOTT-ORDERS-${selectedDate}.zip`;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Downloaded archive: ${filename}`);
+    } catch (err: any) {
+      console.error("Day download error:", err);
+      showToast(err.message || "Error downloading day archive");
+    } finally {
+      setIsDownloadingDay(false);
+    }
   };
 
   const handleSaveSetting = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -340,11 +426,53 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
 
           {activeTab === "ORDERS" && (
             <motion.div key="orders" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold tracking-widest">ORDER MANAGEMENT</h2>
-                <button onClick={exportCSV} className="border border-white/30 text-white text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors">
-                  EXPORT CSV ↓
-                </button>
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-6 border-b border-white/10">
+                <div>
+                  <h2 className="text-lg font-bold tracking-widest">ORDER MANAGEMENT</h2>
+                  <p className="text-xs text-white/50 font-mono mt-0.5">Download high-res sticker print assets & packing manifests</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Date picker & batch sticker download */}
+                  <div className="flex items-center gap-2 bg-[#111] border border-white/20 p-1.5 rounded">
+                    <span className="text-[10px] text-white/50 uppercase tracking-widest pl-1 font-mono">DATE:</span>
+                    <input 
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="bg-black text-white text-xs px-2 py-1 border border-white/10 rounded font-mono outline-none focus:border-[#b4ff39]"
+                    />
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, "0");
+                        const day = String(now.getDate()).padStart(2, "0");
+                        setSelectedDate(`${year}-${month}-${day}`);
+                      }}
+                      className="text-[9px] font-bold px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                      title="Jump to today"
+                    >
+                      TODAY
+                    </button>
+                    <button
+                      onClick={downloadDayStickersZip}
+                      disabled={isDownloadingDay}
+                      className="bg-[#b4ff39] hover:bg-white text-black text-xs font-bold px-3 py-1.5 rounded transition-all tracking-wider flex items-center gap-1.5 disabled:opacity-50"
+                      title={`Download sticker zip package for orders on ${selectedDate}`}
+                    >
+                      {isDownloadingDay ? (
+                        <span className="animate-pulse">ZIPPING...</span>
+                      ) : (
+                        <span>DOWNLOAD DAY'S STICKERS ({ordersOnSelectedDate.length}) 📦</span>
+                      )}
+                    </button>
+                  </div>
+
+                  <button onClick={exportCSV} className="border border-white/30 text-white text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors rounded">
+                    EXPORT CSV ↓
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -356,7 +484,7 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
                       <th className="pb-3 px-4">Stickers Ordered</th>
                       <th className="pb-3 px-4">Total</th>
                       <th className="pb-3 px-4">Status</th>
-                      <th className="pb-3 pl-4 text-right">Invoice</th>
+                      <th className="pb-3 pl-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -421,13 +549,28 @@ export default function AdminTabs({ stats, orders, stickers, users, settings = {
                             </select>
                           </td>
                           <td className="py-4 pl-4 text-right whitespace-nowrap">
-                            <button 
-                              onClick={() => downloadInvoice(order)} 
-                              title="Open official Tax Invoice (PDF & Print)"
-                              className="bg-[#b4ff39] text-black text-[10px] font-bold px-3 py-1.5 hover:bg-white transition-colors tracking-widest inline-flex items-center gap-1"
-                            >
-                              INVOICE ↗
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => downloadOrderStickersZip(order)}
+                                disabled={downloadingOrderId === order.id}
+                                title={`Download ZIP of sticker images for ${order.order_number}`}
+                                className="bg-white/10 border border-white/25 hover:border-[#b4ff39] hover:bg-[#b4ff39] text-white hover:text-black text-[10px] font-bold px-2.5 py-1.5 transition-all tracking-widest inline-flex items-center gap-1 rounded disabled:opacity-50"
+                              >
+                                {downloadingOrderId === order.id ? (
+                                  <span className="animate-pulse">ZIPPING...</span>
+                                ) : (
+                                  <span>ZIP 📦</span>
+                                )}
+                              </button>
+
+                              <button 
+                                onClick={() => downloadInvoice(order)} 
+                                title="Open official Tax Invoice (PDF & Print)"
+                                className="bg-[#b4ff39] text-black text-[10px] font-bold px-3 py-1.5 hover:bg-white transition-colors tracking-widest inline-flex items-center gap-1 rounded"
+                              >
+                                INVOICE ↗
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

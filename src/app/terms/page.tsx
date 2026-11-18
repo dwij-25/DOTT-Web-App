@@ -17,7 +17,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-bold text-white mb-4 tracking-wider text-lg">1. WHAT DOTT. IS</h2>
             <p>
-              DOTT. is a physical sticker brand. We design, produce, and sell pixel stickers via our website dott.in. We are operated from Ahmedabad, India. By using our website or purchasing from us, you agree to these terms.
+              DOTT. is a physical sticker brand. We design, produce, and sell pixel stickers via our website dottdrop.com. We are operated from Ahmedabad, India. By using our website or purchasing from us, you agree to these terms.
             </p>
           </section>
 
@@ -113,7 +113,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="font-bold text-white mb-4 tracking-wider text-lg">14. CONTACT FOR LEGAL MATTERS</h2>
-            <p>hello@dott.in<br/>DOTT., Ahmedabad, Gujarat, India</p>
+            <p>dottdrop@gmail.com<br/>DOTT., Ahmedabad, Gujarat, India</p>
           </section>
         </div>
 

@@ -13,7 +13,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-bold text-white mb-4 tracking-wider text-lg">1. WHO WE ARE</h2>
             <p>
-              DOTT. is a pixel sticker drop-culture brand operated from Ahmedabad, Gujarat, India. We sell physical stickers through our website at dott.in.
+              DOTT. is a pixel sticker drop-culture brand operated from Ahmedabad, Gujarat, India. We sell physical stickers through our website at dottdrop.com.
             </p>
             <p className="mt-2">Contact: dottdrop@gmail.com</p>
           </section>
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
           </section>
 
           <div className="mt-12 pt-8 border-t border-white/10 text-white/50 text-sm">
-            Questions? hello@dott.in · @dott.drop
+            Questions? dottdrop@gmail.com · @dott.drop
           </div>
         </div>
       </div>
